@@ -95,7 +95,7 @@ class _PoseConfirmationScreenState extends State<PoseConfirmationScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Reference saved successfully!')),
+          const SnackBar(content: Text('Reference saved — you\'re all set!')),
         );
         Navigator.pop(context);
       }
@@ -103,7 +103,9 @@ class _PoseConfirmationScreenState extends State<PoseConfirmationScreen> {
       AppLogger.error('Failed to save reference: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('An error occurred while saving. Please try again.')),
+          const SnackBar(
+            content: Text('Something went wrong saving that. Please try again.'),
+          ),
         );
       }
     } finally {
@@ -116,7 +118,7 @@ class _PoseConfirmationScreenState extends State<PoseConfirmationScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Confirm Pose'),
+        title: const Text('Does this look right?'),
         actions: [
           if (!_isProcessing && _landmarks != null)
             TextButton(
@@ -127,7 +129,7 @@ class _PoseConfirmationScreenState extends State<PoseConfirmationScreen> {
                       height: 20,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Text('SAVE'),
+                  : const Text('Save'),
             ),
         ],
       ),
@@ -173,7 +175,7 @@ class _PoseConfirmationScreenState extends State<PoseConfirmationScreen> {
                 children: [
                   CircularProgressIndicator(),
                   SizedBox(height: 16),
-                  Text('Detecting Pose...',
+                  Text('Finding your pose…',
                       style: TextStyle(color: Colors.white)),
                 ],
               ),
@@ -185,7 +187,7 @@ class _PoseConfirmationScreenState extends State<PoseConfirmationScreen> {
               child: Padding(
                 padding: EdgeInsets.all(24.0),
                 child: Text(
-                  'Human not detected.\n\nAI Coach Tip: Please use a photo where the person is standing and visible from head to toe! 🧍',
+                  'Couldn\'t find a person in this photo.\n\nTry using a photo where someone is standing and visible from head to toe — the clearer the better! 🧍',
                   textAlign: TextAlign.center,
                   style:
                       TextStyle(color: Colors.white, fontSize: 18, height: 1.5),

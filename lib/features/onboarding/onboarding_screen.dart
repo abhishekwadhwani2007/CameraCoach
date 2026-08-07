@@ -155,12 +155,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           const Icon(Icons.camera_alt_rounded,
               size: 100, color: AppTheme.primaryColor),
           const SizedBox(height: 32),
-          Text('Welcome to PoseCoach',
+          Text('Welcome to CameraCoach',
               style: Theme.of(context).textTheme.headlineLarge,
               textAlign: TextAlign.center),
           const SizedBox(height: 16),
           Text(
-            'Your real-time AI coach that helps you match any pose perfectly for that perfect photo.',
+            'Your personal pose guide — match any reference photo in real time and let the app take the shot when you\'ve nailed it.',
             style: Theme.of(context).textTheme.bodyLarge,
             textAlign: TextAlign.center,
           ),
@@ -180,19 +180,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         '1',
         Icons.photo_library_rounded,
         'Upload a Reference Photo',
-        'Choose any photo with the pose you want to replicate.'
+        'Pick any photo that has the pose you\'re going for.'
       ),
       (
         '2',
         Icons.camera_rounded,
         'Enter Coach Mode',
-        'Your camera guides you in real-time with pose overlays.'
+        'See a neon silhouette guide overlaid on your camera feed in real time.'
       ),
       (
         '3',
         Icons.auto_awesome_rounded,
         'Auto-Capture at 97% Match',
-        'When your pose matches, the app captures and enhances automatically.'
+        'Hold the pose at 97% match for a few frames and the app fires the shutter automatically.'
       ),
     ];
 
@@ -209,7 +209,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           const SizedBox(height: 40),
           ElevatedButton(
             onPressed: _nextPage,
-            child: const Text('Next: Permissions'),
+            child: const Text('Next →'),
           ),
         ],
       ),
@@ -259,11 +259,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 16),
-          Text('Grant Permissions',
+          Text('Just a couple of permissions',
               style: Theme.of(context).textTheme.headlineLarge),
           const SizedBox(height: 8),
           Text(
-            'PoseCoach needs these permissions to guide your pose. All AI runs on-device — your data stays private.',
+            'CameraCoach needs camera access and photo library access to work. Everything runs on your device — nothing is sent anywhere.',
             style: Theme.of(context).textTheme.bodyLarge,
           ),
           const SizedBox(height: 32),
@@ -300,7 +300,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             TextButton(
               onPressed: _completeOnboarding,
               child: Text(
-                'Skip for now (some features limited)',
+                'Skip for now — I\'ll grant these later',
                 style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
               ),
             ),

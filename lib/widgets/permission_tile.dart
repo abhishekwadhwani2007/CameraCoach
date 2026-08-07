@@ -32,9 +32,9 @@ class PermissionTile extends StatelessWidget {
   }
 
   String get _statusLabel {
-    if (status.isGranted) return 'Granted';
-    if (status.isPermanentlyDenied) return 'Blocked (open Settings)';
-    return 'Not granted';
+    if (status.isGranted) return 'Allowed ✓';
+    if (status.isPermanentlyDenied) return 'Blocked — tap Settings to fix';
+    return 'Not allowed yet';
   }
 
   @override

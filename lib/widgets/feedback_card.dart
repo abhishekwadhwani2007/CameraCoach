@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../core/theme.dart';
 
-/// Card displaying coaching feedback or photographic quality warnings.
+/// Shows a single coaching tip or photo-quality note after a capture.
+/// The `critique` string uses a prefix (FAIL:, PRO:, LIMIT:, INFO:) to
+/// determine the icon and colour — the prefix is stripped before display.
 class FeedbackCard extends StatelessWidget {
   final String critique;
 

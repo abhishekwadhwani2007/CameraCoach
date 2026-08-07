@@ -10,7 +10,8 @@ import '../../models/reference_model.dart';
 import '../../core/theme.dart';
 import '../../utils/logger.dart';
 
-/// HomeScreen — Entry point for selecting target pose and starting live session.
+/// Home screen — where the user picks a reference photo or jumps straight
+/// into coaching if they already have one saved.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -36,7 +37,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!allowedExtensions.contains('.$ext')) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please choose a JPEG, PNG, or WebP image.'),
+          content: Text('Only JPEG, PNG, or WebP images are supported — please pick one of those.'),
         ),
       );
       return;
@@ -48,7 +49,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (fileSize > maxBytes) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Image is too large. Please choose a photo under 10 MB.'),
+          content: Text('That image is a bit too large. Please use a photo under 10 MB.'),
         ),
       );
       return;
@@ -62,7 +63,7 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             CircularProgressIndicator(),
             SizedBox(width: 16),
-            Text('Generating Coach...'),
+            Text('Hang tight — building your pose guide…'),
           ],
         ),
       ),
@@ -95,10 +96,10 @@ class _HomeScreenState extends State<HomeScreen> {
         showDialog(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: const Text('Camera Permission Required'),
+            title: const Text('Camera access needed'),
             content: const Text(
-              'CameraCoach needs access to your camera for real-time pose guidance. '
-              'Please enable camera access in system settings to use this feature.',
+              'CameraCoach needs your camera to guide you in real time. '
+              'You can turn it on in your device settings.',
             ),
             actions: [
               TextButton(
@@ -120,7 +121,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!result.isGranted) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Camera permission is required to start coaching.')),
+          const SnackBar(content: Text('Camera access is needed to start coaching.')),
         );
         return;
       }
@@ -132,7 +133,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (refMap == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text('Please upload a reference photo first!')),
+              content: Text('You\'ll need a reference photo first — tap Upload Reference to pick one.')),
         );
         _pickReferencePhoto();
         return;
