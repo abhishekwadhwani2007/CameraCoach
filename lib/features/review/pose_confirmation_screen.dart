@@ -118,7 +118,7 @@ class _PoseConfirmationScreenState extends State<PoseConfirmationScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Does this look right?'),
+        title: const Text('Silhouette Preview'),
         actions: [
           if (!_isProcessing && _landmarks != null)
             TextButton(

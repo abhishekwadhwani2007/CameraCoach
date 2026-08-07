@@ -63,7 +63,9 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             CircularProgressIndicator(),
             SizedBox(width: 16),
-            Text('Hang tight — building your pose guide…'),
+            Flexible(
+              child: Text('Hang tight — building your pose guide…'),
+            ),
           ],
         ),
       ),
