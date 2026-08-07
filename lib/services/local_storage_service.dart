@@ -118,49 +118,6 @@ class LocalStorageService {
     }
   }
 
-  static Future<List<Map<String, dynamic>>> getAllReferences() async {
-    try {
-      return _inMemoryRefs
-          .map((item) => jsonDecode(item) as Map<String, dynamic>)
-          .toList()
-          .reversed
-          .toList();
-    } catch (e) {
-      AppLogger.error('Failed to load local references: $e');
-      return [];
-    }
-  }
-
-  static Future<void> deleteReference(String id) async {
-    try {
-      // Remove the matching entry from the in-memory list while also cleaning
-      // up the stored image and overlay files from disk.
-      _inMemoryRefs.removeWhere((item) {
-        final map = jsonDecode(item) as Map<String, dynamic>;
-        if (map['id'] == id) {
-          // Fire-and-forget file deletion — errors are non-fatal here.
-          final imagePath = map['imagePath'] as String?;
-          if (imagePath != null) File(imagePath).delete().catchError((_) async => File(imagePath));
-          final outlinePath = map['outlinePath'] as String?;
-          if (outlinePath != null) File(outlinePath).delete().catchError((_) async => File(outlinePath));
-          return true;
-        }
-        return false;
-      });
-
-      final active = await _storage.read(key: _activeReferenceKey);
-      if (active != null) {
-        try {
-          final map = jsonDecode(active);
-          if (map is Map<String, dynamic> && map['id'] == id) {
-            await _storage.delete(key: _activeReferenceKey);
-          }
-        } catch (_) {}
-      }
-    } catch (e) {
-      AppLogger.error('Failed to delete reference: $e');
-    }
-  }
 
   /// Removes temporary CameraCoach files left behind by interrupted capture
   /// flows. Only touches the scoped camera_coach_temp/ subdirectory — this
