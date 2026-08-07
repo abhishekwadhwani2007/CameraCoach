@@ -122,6 +122,7 @@ camera_coach/
 ├── backend/
 │   ├── models/               # Backend TFLite model
 │   ├── outline.py            # Silhouette extraction and neon overlay generation
+│   ├── rembg_worker.py       # Background-removal worker (rembg / background subprocess)
 │   ├── requirements.txt      # Python dependencies
 │   └── server.py             # FastAPI upload endpoint
 ├── ios/                      # iOS runner and native camera plugin
@@ -210,7 +211,38 @@ Other items on the roadmap:
 
 ---
 
-## 🛡️ Security Checklist
+## 🩹 What Broke Once and How We Fixed It
+
+This section exists so nobody has to debug the same thing twice.
+
+### The overlay disappearing after an AI-assisted cleanup (fixed Aug 2026)
+
+**What happened:** An AI cleanup pass removed what it thought were redundant widget properties from `viewfinder.dart`. The app still compiled and ran — but the neon silhouette overlay stopped appearing on the live camera screen entirely.
+
+**Root cause:** Two specific lines in the `Viewfinder` widget are load-bearing for the overlay:
+
+```dart
+// In viewfinder.dart — DO NOT remove either of these
+Transform.scale(
+  scale: 1.35,             // sizes the overlay to fill the viewfinder correctly
+  alignment: Alignment.center,
+  child: Image.file(
+    overlayFile,
+    key: ValueKey(referenceOutlinePath),  // forces Flutter to reload when the path changes
+    fit: BoxFit.contain,
+  ),
+)
+```
+
+- **`Transform.scale(scale: 1.35)`** — without this, the silhouette renders at its raw pixel size and appears as a tiny image in the corner instead of filling the frame.
+- **`ValueKey(referenceOutlinePath)`** — without this, Flutter's widget diffing reuses the old image widget and the new overlay never renders after a reference change.
+
+**The fix:** Restored both properties. Overlay, pose matching, and auto-capture all came back immediately.
+
+**The rule going forward:** `viewfinder.dart`, `live_coaching_screen.dart`, `pose_comparison_service.dart`, `pose_service.dart`, and `silhouette_generator.dart` are **sacred files**. See [CONTRIBUTING.md](CONTRIBUTING.md) for the full guidelines before touching anything in the live session pipeline.
+
+---
+
 
 The following files are excluded by `.gitignore` and should **never** be committed manually:
 
