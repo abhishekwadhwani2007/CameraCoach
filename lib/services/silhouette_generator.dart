@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'dart:math';
-import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
 import 'package:tflite_flutter/tflite_flutter.dart';
@@ -22,9 +22,7 @@ class SilhouetteGenerator {
     }
   }
 
-  static double _sigmoid(double x) {
-    return 1.0 / (1.0 + exp(-x));
-  }
+  static double _sigmoid(double x) => 1.0 / (1.0 + exp(-x));
 
   static Future<String?> generate({
     required String imagePath,
@@ -40,27 +38,31 @@ class SilhouetteGenerator {
     final width = original.width;
     final height = original.height;
 
-    const targetSize = 256;
-    final resized = img.copyResize(original, width: targetSize, height: targetSize);
+    // --- Step 1: Run TFLite to get segmentation mask ---
+    const ts = 256; // model input size
+    final resized = img.copyResize(original, width: ts, height: ts);
 
-    final inputFlat = Float32List(targetSize * targetSize * 3);
-    int flatIdx = 0;
-    for (int y = 0; y < targetSize; y++) {
-      for (int x = 0; x < targetSize; x++) {
+    final inputFlat = Float32List(ts * ts * 3);
+    int idx = 0;
+    for (int y = 0; y < ts; y++) {
+      for (int x = 0; x < ts; x++) {
         final p = resized.getPixel(x, y);
-        inputFlat[flatIdx++] = p.r.toDouble() / 255.0;
-        inputFlat[flatIdx++] = p.g.toDouble() / 255.0;
-        inputFlat[flatIdx++] = p.b.toDouble() / 255.0;
+        inputFlat[idx++] = p.r.toDouble() / 255.0;
+        inputFlat[idx++] = p.g.toDouble() / 255.0;
+        inputFlat[idx++] = p.b.toDouble() / 255.0;
       }
     }
 
-    final maskFlat = Float32List(targetSize * targetSize);
+    // Model outputs shape [1, 256, 256, 1].
+    final maskOut = List.generate(1, (_) =>
+      List.generate(ts, (_) =>
+        List.generate(ts, (_) => List.filled(1, 0.0))));
 
     try {
       _interpreter!.allocateTensors();
       _interpreter!.getInputTensor(0).setTo(inputFlat);
       _interpreter!.invoke();
-      _interpreter!.getOutputTensor(2).copyTo(maskFlat);
+      _interpreter!.getOutputTensor(2).copyTo(maskOut);
     } catch (e) {
       AppLogger.error('Silhouette inference error: $e');
       _interpreter?.close();
@@ -68,182 +70,307 @@ class SilhouetteGenerator {
       return null;
     }
 
-    final canvas = img.Image(width: width, height: height, numChannels: 4);
-    img.fill(canvas, color: img.ColorRgba8(0, 0, 0, 0));
-
-    final boolMask =
-        List.generate(targetSize, (i) => List.filled(targetSize, false));
-    for (int y = 0; y < targetSize; y++) {
-      for (int x = 0; x < targetSize; x++) {
-        boolMask[y][x] = _sigmoid(maskFlat[y * targetSize + x]) > 0.5;
+    // --- Step 2: Build boolean mask with skeleton augmentation ---
+    final mask = List.generate(ts, (_) => List.filled(ts, false));
+    for (int y = 0; y < ts; y++) {
+      for (int x = 0; x < ts; x++) {
+        mask[y][x] = _sigmoid(maskOut[0][y][x][0]) > 0.5;
       }
     }
 
     if (landmarks != null && landmarks.isNotEmpty) {
-      double bodyScale = 100.0;
-      final lSh = landmarks['leftShoulder'];
-      final rSh = landmarks['rightShoulder'];
-      if (lSh != null && rSh != null) {
-        final lx = (lSh['x'] as num).toDouble();
-        final ly = (lSh['y'] as num).toDouble();
-        final rx = (rSh['x'] as num).toDouble();
-        final ry = (rSh['y'] as num).toDouble();
-        final d = sqrt((lx - rx) * (lx - rx) + (ly - ry) * (ly - ry));
-        if (d > 20) bodyScale = d;
-      }
-
-      Offset? getPt(String key) {
-        final pt = landmarks[key];
-        if (pt == null) return null;
-        final lx = (pt['x'] as num).toDouble();
-        final ly = (pt['y'] as num).toDouble();
-        final confidence = (pt['lh'] as num).toDouble();
-        if (confidence < 0.25) return null;
-        return Offset((lx / width) * targetSize, (ly / height) * targetSize);
-      }
-
-      void drawThickLine(String keyA, String keyB, double widthRatio) {
-        final a = getPt(keyA);
-        final b = getPt(keyB);
-        if (a == null || b == null) return;
-
-        final thickness =
-            max(3.0, (bodyScale * widthRatio / width) * targetSize);
-
-        final x0 = a.dx;
-        final y0 = a.dy;
-        final x1 = b.dx;
-        final y1 = b.dy;
-
-        final minX = (min(x0, x1) - thickness).clamp(0.0, 255.0).toInt();
-        final maxX = (max(x0, x1) + thickness).clamp(0.0, 255.0).toInt();
-        final minY = (min(y0, y1) - thickness).clamp(0.0, 255.0).toInt();
-        final maxY = (max(y0, y1) + thickness).clamp(0.0, 255.0).toInt();
-
-        final dx = x1 - x0;
-        final dy = y1 - y0;
-        final lenSq = dx * dx + dy * dy;
-
-        for (int y = minY; y <= maxY; y++) {
-          for (int x = minX; x <= maxX; x++) {
-            double t = 0.0;
-            if (lenSq > 0) {
-              t = ((x - x0) * dx + (y - y0) * dy) / lenSq;
-              t = t.clamp(0.0, 1.0);
-            }
-            final projX = x0 + t * dx;
-            final projY = y0 + t * dy;
-            final distSq =
-                (x - projX) * (x - projX) + (y - projY) * (y - projY);
-            if (distSq <= thickness * thickness) {
-              boolMask[y][x] = true;
-            }
-          }
-        }
-      }
-
-      void drawCircle(String key, double radiusRatio) {
-        final pt = getPt(key);
-        if (pt == null) return;
-
-        final radius =
-            max(2.5, (bodyScale * radiusRatio / width) * targetSize);
-
-        final cx = pt.dx;
-        final cy = pt.dy;
-
-        final minX = (cx - radius).clamp(0.0, 255.0).toInt();
-        final maxX = (cx + radius).clamp(0.0, 255.0).toInt();
-        final minY = (cy - radius).clamp(0.0, 255.0).toInt();
-        final maxY = (cy + radius).clamp(0.0, 255.0).toInt();
-
-        for (int y = minY; y <= maxY; y++) {
-          for (int x = minX; x <= maxX; x++) {
-            final distSq =
-                (x - cx) * (x - cx) + (y - cy) * (y - cy);
-            if (distSq <= radius * radius) {
-              boolMask[y][x] = true;
-            }
-          }
-        }
-      }
-
-      drawThickLine('leftShoulder', 'rightShoulder', 0.35);
-      drawThickLine('leftShoulder', 'leftHip', 0.22);
-      drawThickLine('rightShoulder', 'rightHip', 0.22);
-      drawThickLine('leftHip', 'rightHip', 0.22);
-      drawThickLine('leftShoulder', 'leftElbow', 0.27);
-      drawThickLine('leftElbow', 'leftWrist', 0.23);
-      drawThickLine('rightShoulder', 'rightElbow', 0.27);
-      drawThickLine('rightElbow', 'rightWrist', 0.23);
-      drawThickLine('leftHip', 'leftKnee', 0.18);
-      drawThickLine('leftKnee', 'leftAnkle', 0.14);
-      drawThickLine('rightHip', 'rightKnee', 0.18);
-      drawThickLine('rightKnee', 'rightAnkle', 0.14);
-
-      drawCircle('nose', 0.15);
-      drawCircle('leftEar', 0.12);
-      drawCircle('rightEar', 0.12);
-      drawCircle('leftShoulder', 0.13);
-      drawCircle('rightShoulder', 0.13);
-      drawCircle('leftWrist', 0.20);
-      drawCircle('rightWrist', 0.20);
-      drawCircle('leftAnkle', 0.12);
-      drawCircle('rightAnkle', 0.12);
+      _augmentMaskWithSkeleton(mask, landmarks, width, height, ts);
     }
 
-    // Detect edge pixels — those on the boundary of the silhouette — which
-    // are where we paint the neon glow rather than filling the whole shape.
-    final edgeMask =
-        List.generate(targetSize, (i) => List.filled(targetSize, false));
-    for (int y = 1; y < targetSize - 1; y++) {
-      for (int x = 1; x < targetSize - 1; x++) {
-        if (boolMask[y][x]) {
-          if (!boolMask[y - 1][x] ||
-              !boolMask[y + 1][x] ||
-              !boolMask[y][x - 1] ||
-              !boolMask[y][x + 1]) {
-            edgeMask[y][x] = true;
-          }
+    // --- Step 3: Extract edges with Morphological Dilation & Smoothing ---
+    var processed = _dilate(mask, 3);
+    processed = _erode(processed, 3);
+
+    final dilated = _dilate(processed, 2);
+
+    var maskFloat = List.generate(ts, (y) => Float64List.fromList(
+      List.generate(ts, (x) => dilated[y][x] ? 1.0 : 0.0)
+    ));
+    maskFloat = _blur(maskFloat, ts, ts, 4.0);
+
+    final smoothed = List.generate(ts, (y) => List.generate(ts, (x) => maskFloat[y][x] > 0.45));
+
+    final edgeDilated = _dilate(smoothed, 2);
+    final edgeEroded = _erode(smoothed, 2);
+
+    final edges = List.generate(ts, (_) => Float64List(ts));
+    for (int y = 0; y < ts; y++) {
+      for (int x = 0; x < ts; x++) {
+        if (edgeDilated[y][x] && !edgeEroded[y][x]) {
+          edges[y][x] = 1.0;
         }
       }
     }
 
-    final scaleX = width / targetSize;
-    final scaleY = height / targetSize;
-    final glowRadius = max(4, (max(width, height) * 0.005).toInt());
+    // --- Step 4: Render neon glow in background isolate ---
+    final pngBytes = await compute(_renderNeonGlow, edges);
 
-    for (int y = 0; y < targetSize; y++) {
-      for (int x = 0; x < targetSize; x++) {
-        if (edgeMask[y][x]) {
-          final origX = (x * scaleX).round();
-          final origY = (y * scaleY).round();
-
-          img.fillCircle(
-            canvas,
-            x: origX,
-            y: origY,
-            radius: glowRadius * 2,
-            color: img.ColorRgba8(0, 255, 255, 45),
-          );
-          img.fillCircle(
-            canvas,
-            x: origX,
-            y: origY,
-            radius: glowRadius,
-            color: img.ColorRgba8(255, 255, 255, 200),
-          );
-        }
-      }
-    }
-
-    // Write into the scoped temp directory so startup cleanup can safely
-    // remove it without risking files from other apps.
+    // --- Step 5: Save ---
     final scopedPath = await LocalStorageService.getScopedTempPath();
     final out = File(
       '$scopedPath/reference_overlay_${DateTime.now().millisecondsSinceEpoch}.png',
     );
-    await out.writeAsBytes(img.encodePng(canvas));
+    await out.writeAsBytes(pngBytes, flush: true);
     return out.path;
+  }
+
+  /// Heavy pixel work — runs in a separate isolate via compute().
+  static Uint8List _renderNeonGlow(List<Float64List> edges) {
+    const ts = 256;
+    // Render at small size — Flutter upscales smoothly since it's all soft glow.
+    const cw = 270;
+    const ch = 480;
+
+    // Bilinear upscale edges from 256x256 → 270x480.
+    final edgeUp = List.generate(ch, (_) => Float64List(cw));
+    const sxr = ts / cw;
+    const syr = ts / ch;
+    for (int y = 0; y < ch; y++) {
+      for (int x = 0; x < cw; x++) {
+        final sx = x * sxr;
+        final sy = y * syr;
+        final x0 = sx.floor().clamp(0, ts - 2);
+        final y0 = sy.floor().clamp(0, ts - 2);
+        final fx = sx - x0;
+        final fy = sy - y0;
+        edgeUp[y][x] =
+            edges[y0][x0] * (1 - fx) * (1 - fy) +
+            edges[y0][x0 + 1] * fx * (1 - fy) +
+            edges[y0 + 1][x0] * (1 - fx) * fy +
+            edges[y0 + 1][x0 + 1] * fx * fy;
+      }
+    }
+
+    // 3 glow layers (warm white-gold, matching backend aesthetic).
+    const layers = [
+      (12.0, 0.12, 170, 235, 130),  // outer: warm green glow
+      ( 5.0, 0.45, 110, 230,  55),  // mid: brighter green
+      ( 1.5, 0.85, 205, 245, 185),  // inner: warm white core
+    ];
+
+    final alpha = List.generate(ch, (_) => Float64List(cw));
+    final colR  = List.generate(ch, (_) => Float64List(cw));
+    final colG  = List.generate(ch, (_) => Float64List(cw));
+    final colB  = List.generate(ch, (_) => Float64List(cw));
+
+    for (final (rawR, intensity, r, g, b) in layers) {
+      final sigma = max(0.8, rawR * ch / 1400.0);
+      final blurred = _blur(edgeUp, cw, ch, sigma);
+      for (int y = 0; y < ch; y++) {
+        for (int x = 0; x < cw; x++) {
+          final v = (blurred[y][x] * intensity * 2.5).clamp(0.0, 1.0);
+          if (v > alpha[y][x]) alpha[y][x] = v;
+          colR[y][x] += v * r / 255.0;
+          colG[y][x] += v * g / 255.0;
+          colB[y][x] += v * b / 255.0;
+        }
+      }
+    }
+
+    // Sharp white core.
+    final core = _blur(edgeUp, cw, ch, 0.5);
+    for (int y = 0; y < ch; y++) {
+      for (int x = 0; x < cw; x++) {
+        final v = (core[y][x] * 0.95).clamp(0.0, 1.0);
+        colR[y][x] += v * 205 / 255.0;
+        colG[y][x] += v * 245 / 255.0;
+        colB[y][x] += v * 185 / 255.0;
+        alpha[y][x] = (alpha[y][x] + v).clamp(0.0, 1.0);
+      }
+    }
+
+    // Write to RGBA image.
+    final canvas = img.Image(width: cw, height: ch, numChannels: 4);
+    img.fill(canvas, color: img.ColorRgba8(0, 0, 0, 0));
+    for (int y = 0; y < ch; y++) {
+      for (int x = 0; x < cw; x++) {
+        final a = alpha[y][x];
+        if (a < 0.004) continue;
+        final inv = 1.0 / max(a, 1e-6);
+        canvas.setPixelRgba(x, y,
+          (colR[y][x] * inv * 255).clamp(0, 255).toInt(),
+          (colG[y][x] * inv * 255).clamp(0, 255).toInt(),
+          (colB[y][x] * inv * 255).clamp(0, 255).toInt(),
+          (a * 255).clamp(0, 255).toInt(),
+        );
+      }
+    }
+
+    return Uint8List.fromList(img.encodePng(canvas));
+  }
+
+  /// 2-pass separable Gaussian blur.
+  static List<Float64List> _blur(List<Float64List> src, int w, int h, double sigma) {
+    final r = (sigma * 3).ceil();
+    final ks = r * 2 + 1;
+    final k = Float64List(ks);
+    double s = 0;
+    for (int i = 0; i < ks; i++) {
+      final d = (i - r).toDouble();
+      k[i] = exp(-0.5 * d * d / (sigma * sigma));
+      s += k[i];
+    }
+    for (int i = 0; i < ks; i++) {
+      k[i] /= s;
+    }
+
+    final tmp = List.generate(h, (_) => Float64List(w));
+    for (int y = 0; y < h; y++) {
+      for (int x = 0; x < w; x++) {
+        double v = 0;
+        for (int j = -r; j <= r; j++) {
+          v += src[y][(x + j).clamp(0, w - 1)] * k[j + r];
+        }
+        tmp[y][x] = v;
+      }
+    }
+
+    final dst = List.generate(h, (_) => Float64List(w));
+    for (int y = 0; y < h; y++) {
+      for (int x = 0; x < w; x++) {
+        double v = 0;
+        for (int j = -r; j <= r; j++) {
+          v += tmp[(y + j).clamp(0, h - 1)][x] * k[j + r];
+        }
+        dst[y][x] = v;
+      }
+    }
+    return dst;
+  }
+
+  /// Draw skeleton lines and joints onto the boolean mask.
+  static void _augmentMaskWithSkeleton(
+    List<List<bool>> mask, Map<String, dynamic> lm,
+    int imgW, int imgH, int ts,
+  ) {
+    double bodyScale = 100.0;
+    final lSh = lm['leftShoulder'], rSh = lm['rightShoulder'];
+    if (lSh != null && rSh != null) {
+      final d = sqrt(pow((lSh['x'] as num) - (rSh['x'] as num), 2) +
+                     pow((lSh['y'] as num) - (rSh['y'] as num), 2));
+      if (d > 20) bodyScale = d.toDouble();
+    }
+
+    Offset? pt(String key) {
+      final p = lm[key];
+      if (p == null) return null;
+      if ((p['lh'] as num).toDouble() < 0.25) return null;
+      return Offset(
+        ((p['x'] as num).toDouble() / imgW) * ts,
+        ((p['y'] as num).toDouble() / imgH) * ts,
+      );
+    }
+
+    void line(String a, String b, double wr) {
+      final pa = pt(a), pb = pt(b);
+      if (pa == null || pb == null) return;
+      final thick = max(3.0, (bodyScale * wr / imgW) * ts);
+      final dx = pb.dx - pa.dx, dy = pb.dy - pa.dy;
+      final lenSq = dx * dx + dy * dy;
+      final minX = (min(pa.dx, pb.dx) - thick).clamp(0, ts - 1).toInt();
+      final maxX = (max(pa.dx, pb.dx) + thick).clamp(0, ts - 1).toInt();
+      final minY = (min(pa.dy, pb.dy) - thick).clamp(0, ts - 1).toInt();
+      final maxY = (max(pa.dy, pb.dy) + thick).clamp(0, ts - 1).toInt();
+      for (int y = minY; y <= maxY; y++) {
+        for (int x = minX; x <= maxX; x++) {
+          double t = lenSq > 0 ? ((x - pa.dx) * dx + (y - pa.dy) * dy) / lenSq : 0;
+          t = t.clamp(0.0, 1.0);
+          final px = pa.dx + t * dx, py = pa.dy + t * dy;
+          if ((x - px) * (x - px) + (y - py) * (y - py) <= thick * thick) {
+            mask[y][x] = true;
+          }
+        }
+      }
+    }
+
+    void circle(String key, double rr) {
+      final p = pt(key);
+      if (p == null) return;
+      final r = max(2.5, (bodyScale * rr / imgW) * ts);
+      final minX = (p.dx - r).clamp(0, ts - 1).toInt();
+      final maxX = (p.dx + r).clamp(0, ts - 1).toInt();
+      final minY = (p.dy - r).clamp(0, ts - 1).toInt();
+      final maxY = (p.dy + r).clamp(0, ts - 1).toInt();
+      for (int y = minY; y <= maxY; y++) {
+        for (int x = minX; x <= maxX; x++) {
+          if ((x - p.dx) * (x - p.dx) + (y - p.dy) * (y - p.dy) <= r * r) {
+            mask[y][x] = true;
+          }
+        }
+      }
+    }
+
+    // Body segments
+    line('leftShoulder', 'rightShoulder', 0.35);
+    line('leftShoulder', 'leftHip', 0.22);
+    line('rightShoulder', 'rightHip', 0.22);
+    line('leftHip', 'rightHip', 0.22);
+    line('leftShoulder', 'leftElbow', 0.27);
+    line('leftElbow', 'leftWrist', 0.23);
+    line('rightShoulder', 'rightElbow', 0.27);
+    line('rightElbow', 'rightWrist', 0.23);
+    line('leftHip', 'leftKnee', 0.18);
+    line('leftKnee', 'leftAnkle', 0.14);
+    line('rightHip', 'rightKnee', 0.18);
+    line('rightKnee', 'rightAnkle', 0.14);
+
+    // Joints
+    for (final (k, r) in [
+      ('nose', 0.15), ('leftEar', 0.12), ('rightEar', 0.12),
+      ('leftShoulder', 0.13), ('rightShoulder', 0.13),
+      ('leftWrist', 0.20), ('rightWrist', 0.20),
+      ('leftAnkle', 0.12), ('rightAnkle', 0.12),
+    ]) {
+      circle(k, r);
+    }
+  }
+
+  /// Square-kernel morphological dilation on a boolean grid.
+  static List<List<bool>> _dilate(List<List<bool>> src, int radius) {
+    final ts = src.length;
+    final dst = List.generate(ts, (_) => List.filled(ts, false));
+    for (int y = 0; y < ts; y++) {
+      for (int x = 0; x < ts; x++) {
+        if (src[y][x]) {
+          final minY = max(0, y - radius);
+          final maxY = min(ts - 1, y + radius);
+          final minX = max(0, x - radius);
+          final maxX = min(ts - 1, x + radius);
+          for (int dy = minY; dy <= maxY; dy++) {
+            for (int dx = minX; dx <= maxX; dx++) {
+              dst[dy][dx] = true;
+            }
+          }
+        }
+      }
+    }
+    return dst;
+  }
+
+  /// Square-kernel morphological erosion on a boolean grid.
+  static List<List<bool>> _erode(List<List<bool>> src, int radius) {
+    final ts = src.length;
+    final dst = List.generate(ts, (_) => List.filled(ts, true));
+    for (int y = 0; y < ts; y++) {
+      for (int x = 0; x < ts; x++) {
+        if (!src[y][x]) {
+          final minY = max(0, y - radius);
+          final maxY = min(ts - 1, y + radius);
+          final minX = max(0, x - radius);
+          final maxX = min(ts - 1, x + radius);
+          for (int dy = minY; dy <= maxY; dy++) {
+            for (int dx = minX; dx <= maxX; dx++) {
+              dst[dy][dx] = false;
+            }
+          }
+        }
+      }
+    }
+    return dst;
   }
 }

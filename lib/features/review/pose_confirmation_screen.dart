@@ -111,6 +111,7 @@ class _PoseConfirmationScreenState extends State<PoseConfirmationScreen> {
     }
   }
 
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -132,27 +133,39 @@ class _PoseConfirmationScreenState extends State<PoseConfirmationScreen> {
       ),
       body: Stack(
         children: [
+          // Black background
           Container(color: Colors.black),
+
+          // Photo + overlay scaled together (1.2×) so the figure fills the
+          // screen better without breaking overlay–photo alignment — both use
+          // BoxFit.contain and share the same aspect ratio.
           if (_imageSize != null)
-            Center(
-              child: AspectRatio(
-                aspectRatio: _imageSize!.width / _imageSize!.height,
-                child: Image.file(
-                  File(widget.imagePath),
-                  fit: BoxFit.contain,
+            Positioned.fill(
+              child: Transform.scale(
+                scale: 1.2,
+                alignment: Alignment.center,
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: Image.file(
+                        File(widget.imagePath),
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                    if (!_isProcessing && _outlinePath != null)
+                      Positioned.fill(
+                        child: Image.file(
+                          File(_outlinePath!),
+                          key: ValueKey(_outlinePath),
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ),
-          if (!_isProcessing && _outlinePath != null && _imageSize != null)
-            Center(
-              child: AspectRatio(
-                aspectRatio: _imageSize!.width / _imageSize!.height,
-                child: Image.file(
-                  File(_outlinePath!),
-                  fit: BoxFit.contain,
-                ),
-              ),
-            ),
+
+          // Loading spinner
           if (_isProcessing)
             const Center(
               child: Column(
@@ -165,6 +178,8 @@ class _PoseConfirmationScreenState extends State<PoseConfirmationScreen> {
                 ],
               ),
             ),
+
+          // No-person detected message
           if (!_isProcessing && _landmarks == null)
             const Center(
               child: Padding(

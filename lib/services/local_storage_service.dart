@@ -140,9 +140,9 @@ class LocalStorageService {
         if (map['id'] == id) {
           // Fire-and-forget file deletion — errors are non-fatal here.
           final imagePath = map['imagePath'] as String?;
-          if (imagePath != null) File(imagePath).delete().catchError((_) {});
+          if (imagePath != null) File(imagePath).delete().catchError((_) async => File(imagePath));
           final outlinePath = map['outlinePath'] as String?;
-          if (outlinePath != null) File(outlinePath).delete().catchError((_) {});
+          if (outlinePath != null) File(outlinePath).delete().catchError((_) async => File(outlinePath));
           return true;
         }
         return false;

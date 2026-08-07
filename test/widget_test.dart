@@ -4,7 +4,7 @@ import 'package:pose_coach/main.dart';
 
 void main() {
   testWidgets('PoseCoach smoke test', (WidgetTester tester) async {
-    await tester.pumpWidget(const PoseCoachApp(showOnboarding: false));
+    await tester.pumpWidget(const CameraCoachApp(showOnboarding: false));
     await tester.pumpAndSettle();
 
     expect(find.text('PoseCoach'), findsOneWidget);

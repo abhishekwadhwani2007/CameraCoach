@@ -46,7 +46,8 @@ async def generate_overlay(
 ) -> FileResponse:
     print("\n=== NEW REQUEST ===", flush=True)
 
-    if file.content_type not in _ALLOWED_MIME:
+    # Allow application/octet-stream fallback as mobile clients might not set specific image MIME types
+    if file.content_type not in _ALLOWED_MIME and file.content_type != "application/octet-stream":
         print(f"[REJECT] Bad MIME: {file.content_type}", flush=True)
         raise HTTPException(
             status_code=415,

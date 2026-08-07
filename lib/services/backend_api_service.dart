@@ -18,8 +18,9 @@ class BackendApiService {
   /// 10 MB client-side guard before any bytes leave the device.
   static const int _maxFileSizeBytes = 10 * 1024 * 1024;
 
-  /// 30-second wall-clock limit for upload + server processing.
-  static const Duration _requestTimeout = Duration(seconds: 30);
+  /// 90-second wall-clock limit — GrabCut on CPU needs ~15-25 s on top of
+  /// upload time, so 30 s was too tight. 90 s gives a safe margin.
+  static const Duration _requestTimeout = Duration(seconds: 90);
 
   static Future<String?> generateOverlay(String imagePath) async {
     if (_baseUrl.trim().isEmpty) {

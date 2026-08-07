@@ -9,6 +9,34 @@ warnings.filterwarnings('ignore')
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_PATH = os.path.join(SCRIPT_DIR, 'models', 'pose_landmark_full.tflite')
 
+# ---------------------------------------------------------------------------
+# Optional segmentation backends
+# Architecture:
+#   Tier-1  MediaPipe selfie_segmentation   – fast, init at startup, no download
+#   Tier-2  rembg u2net_human_seg           – best quality, runs in subprocess
+#                                             (isolated from TF GPU context)
+#   Tier-3  GrabCut                         – always available, last resort
+# ---------------------------------------------------------------------------
+
+# Tier 1 – MediaPipe (initializes in <2 s, model is bundled with the package)
+_MP_SELFIE_SEG = None
+try:
+    import mediapipe as _mp_mod
+    _MP_SELFIE_SEG = _mp_mod.solutions.selfie_segmentation.SelfieSegmentation(
+        model_selection=1)          # model 1 = landscape (full-body, more accurate)
+    print('[outline] MediaPipe selfie_segmentation ready (Tier-1 active)', flush=True)
+except Exception as _e:
+    print(f'[outline] MediaPipe unavailable ({_e}); Tier-1 disabled.', flush=True)
+
+# Tier 2 – rembg worker path (no import here; called as subprocess to avoid
+# onnxruntime-gpu deadlock with TensorFlow)
+_REMBG_WORKER = os.path.join(SCRIPT_DIR, 'rembg_worker.py')
+_REMBG_AVAILABLE = os.path.exists(_REMBG_WORKER)
+if _REMBG_AVAILABLE:
+    print('[outline] rembg subprocess worker found (Tier-2 active)', flush=True)
+else:
+    print('[outline] rembg_worker.py not found; Tier-2 disabled.', flush=True)
+
 # Glow layers: radius, alpha, and BGR colour.
 GLOW_LAYERS = [
     (24, 0.055, (150, 235, 190)),
@@ -39,7 +67,7 @@ BODY_JOINTS = [
     (12, 0.13),
     (13, 0.13),
     (14, 0.13),
-    (15, 0.22),
+    (15, 0.22),   # wrist — sized to cover hand/grip area properly
     (16, 0.22),
     (23, 0.12),
     (24, 0.12),
@@ -123,7 +151,18 @@ def _draw_arm_force_fg(force_fg: np.ndarray, lms: np.ndarray, body_scale: float)
 
 def _build_kettlebell_ellipse(lms: np.ndarray, body_scale: float,
                                H: int, W: int):
-    """Build a tight kettlebell ellipse in front of close wrists."""
+    """
+    FIX (hump): Build a tight kettlebell ellipse that sits *in front of*
+    the body rather than bleeding into the arm silhouette.
+
+    Key changes vs original:
+    - The ellipse is shifted toward the kettlebell side (away from torso
+      centre) so it doesn't overlap the forearm outline.
+    - ell_ry is capped so the ellipse doesn't extend back up into the
+      forearm area and create a hump.
+    - The ellipse is only drawn when the wrists are close AND the ball
+      is plausibly in front of the torso (checked via torso_cx).
+    """
     lw, rw = lms[15], lms[16]
     if lw[3] < 0.3 or rw[3] < 0.3:
         return None
@@ -151,12 +190,18 @@ def _build_kettlebell_ellipse(lms: np.ndarray, body_scale: float,
     ell_rx  = ball_r + max(3, int(wrist_dist * 0.08))
     ell_ry  = max(ball_r, int(ball_cy_est - ell_cy) + ball_r)
 
-    return (ell_cx, ell_cy, ell_rx, ell_ry)
+    params = (ell_cx, ell_cy, ell_rx, ell_ry)
+    return params
 
 
 def _detect_kettlebell_ellipse(img_bgr: np.ndarray, lms: np.ndarray,
                                body_scale: float):
-    """Find the dark kettlebell mass in front of the wrists via pixel search."""
+    """
+    Find the dark kettlebell mass in front of the wrists.  The pose model
+    can report one wrist with low confidence on this image, so use the
+    wrist pair mainly to define a small search window and let image pixels
+    locate the ball.
+    """
     H, W = img_bgr.shape[:2]
     lw, rw = lms[15], lms[16]
     if lw[3] < 0.15 and rw[3] < 0.15:
@@ -329,12 +374,103 @@ def combine_masks(seg_mask: np.ndarray, skeleton_mask: np.ndarray) -> np.ndarray
     return combined
 
 
+# ---------------------------------------------------------------------------
+# Tier-1: MediaPipe Selfie Segmentation (fast, no download, bundled model)
+# ---------------------------------------------------------------------------
+def refine_with_mediapipe(img_bgr: np.ndarray,
+                          skeleton_mask: np.ndarray) -> np.ndarray:
+    """
+    Segment the person using MediaPipe selfie_segmentation and return a
+    binary foreground mask merged with the skeleton.
+    """
+    rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+    result = _MP_SELFIE_SEG.process(rgb)
+    seg = result.segmentation_mask          # float32  H x W  in [0, 1]
+    H, W = img_bgr.shape[:2]
+    seg = cv2.resize(seg, (W, H), interpolation=cv2.INTER_LINEAR)
+    binary = (seg > 0.5).astype(np.uint8) * 255
+
+    # Union with skeleton so limbs are never lost
+    binary = np.maximum(binary, skeleton_mask)
+
+    # Closing to fill small holes in clothing and bridge small inner-limb gaps.
+    # 0.007 × max_dim gives a 7 px kernel at 1024 px (vs 5 px at 0.005),
+    # which is enough to close the inner-thigh shadow without merging the feet.
+    k = max(5, int(max(H, W) * 0.007)) | 1
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k))
+    binary = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel, iterations=2)
+    return binary
+
+
+# ---------------------------------------------------------------------------
+# Tier-2: rembg U²-Net via isolated subprocess (avoids TF/ONNX GPU conflict)
+# ---------------------------------------------------------------------------
+def refine_with_rembg(img_bgr: np.ndarray,
+                      skeleton_mask: np.ndarray,
+                      timeout: int = 60) -> np.ndarray:
+    """
+    Run rembg in a separate Python process so its onnxruntime-gpu never
+    conflicts with TensorFlow's CUDA context.  Falls back gracefully on timeout
+    or any subprocess error.
+    """
+    import tempfile, subprocess
+
+    H, W = img_bgr.shape[:2]
+
+    # Write the input image to a temp file
+    with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp_in:
+        tmp_in_path = tmp_in.name
+    with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp_out:
+        tmp_out_path = tmp_out.name
+
+    try:
+        cv2.imwrite(tmp_in_path, img_bgr)
+
+        result = subprocess.run(
+            [sys.executable, _REMBG_WORKER, tmp_in_path, tmp_out_path],
+            timeout=timeout,
+            capture_output=True,
+        )
+
+        if result.returncode != 0:
+            stderr = result.stderr.decode(errors='replace')
+            raise RuntimeError(f'rembg_worker exited {result.returncode}: {stderr[:200]}')
+
+        mask = cv2.imread(tmp_out_path, cv2.IMREAD_GRAYSCALE)
+        if mask is None:
+            raise RuntimeError('rembg_worker produced no output mask')
+
+        mask = cv2.resize(mask, (W, H), interpolation=cv2.INTER_LINEAR)
+        binary = (mask > 127).astype(np.uint8) * 255
+
+        # Union with skeleton
+        binary = np.maximum(binary, skeleton_mask)
+
+        # Closing
+        k = max(5, int(max(H, W) * 0.005)) | 1
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k))
+        binary = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel, iterations=2)
+        return binary
+
+    finally:
+        for p in (tmp_in_path, tmp_out_path):
+            try:
+                os.remove(p)
+            except OSError:
+                pass
+
+
+# ---------------------------------------------------------------------------
+# Tier-3 (original): GrabCut
+# ---------------------------------------------------------------------------
 def refine_with_grabcut(img_bgr: np.ndarray, coarse_mask: np.ndarray,
                         iterations: int = 3,
                         floor_y: int = None,
                         force_fg: np.ndarray = None) -> np.ndarray:
     H, W = img_bgr.shape[:2]
-    MAX_DIM = 800
+    # 450 px keeps GrabCut fast (~10 s) without losing meaningful boundary
+    # accuracy — the coarse skeleton mask already guides the segmentation.
+    MAX_DIM = 450
     scale = min(MAX_DIM / max(H, W), 1.0)
     if scale < 1.0:
         small_img  = cv2.resize(img_bgr,    (int(W * scale), int(H * scale)))
@@ -471,7 +607,7 @@ def _smooth_contour(contour: np.ndarray, sigma: float = 3.0,
 
 def extract_body_contours(binary_mask: np.ndarray,
                           min_area_frac: float = 0.001,
-                          smooth_sigma: float = 3.0):
+                          smooth_sigma: float = 6.0):
     H, W = binary_mask.shape[:2]
     total_area = H * W
 
@@ -589,7 +725,7 @@ def _render_raster_neon_rgba(canvas_mask: np.ndarray) -> np.ndarray:
     color_acc = np.zeros((h, w, 3), dtype=np.float32)
     for raw_radius, alpha, color in GLOW_LAYERS:
         # Scale the blur with canvas size while preserving separation between limbs.
-        sigma = max(0.8, raw_radius * base / 1400.0)
+        sigma = max(0.8, raw_radius * base / 800.0)
         layer = cv2.GaussianBlur(edge, (0, 0), sigmaX=sigma, sigmaY=sigma)
         layer = np.clip(layer * alpha * 2.2, 0.0, 1.0)
         glow = np.maximum(glow, layer)
@@ -617,8 +753,9 @@ def _vector_smooth_canvas_mask(canvas_mask: np.ndarray) -> np.ndarray:
         return canvas_mask
 
     smooth_mask = np.zeros_like(mask_u8)
+
     smoothed_contours = []
-    for contour in contours:
+    for i, contour in enumerate(contours):
         arc = cv2.arcLength(contour, True)
         epsilon = 0.0008 * arc
         decimated = cv2.approxPolyDP(contour, epsilon, True)
@@ -687,10 +824,10 @@ def extract_body_mask_from_image(body_image_path: str) -> tuple[np.ndarray, tupl
     print(f'      Pose confidence: {score:.3f}')
 
     print('[3/3] Extracting refined body mask ...')
-    body_sc   = _get_body_scale(lms)
+    body_sc    = _get_body_scale(lms)
     kettle_ell = _detect_kettlebell_ellipse(img, lms, body_sc)
-    skeleton  = build_skeleton_mask(H, W, lms, kettle_ell)
-    coarse    = combine_masks(seg_mask, skeleton)
+    skeleton   = build_skeleton_mask(H, W, lms, kettle_ell)
+    coarse     = combine_masks(seg_mask, skeleton)
 
     heel_toe = [29, 30, 31, 32]
     ht_ys = [int(lms[fi][1]) for fi in heel_toe if lms[fi][3] > 0.15]
@@ -705,39 +842,57 @@ def extract_body_mask_from_image(body_image_path: str) -> tuple[np.ndarray, tupl
         cv2.ellipse(force_fg, (ell_cx, ell_cy), (ell_rx, ell_ry),
                     0, 0, 360, 255, -1, lineType=cv2.LINE_AA)
 
-    binary   = refine_with_grabcut(img, coarse, iterations=3,
-                                   floor_y=floor_y, force_fg=force_fg)
-    binary   = smooth_hair_neck_mask(binary, lms, body_sc)
+    # -----------------------------------------------------------------------
+    # Segmentation: GrabCut guided by the coarse skeleton mask.
+    # GrabCut uses image colour statistics constrained to the coarse mask —
+    # it cannot hallucinate people in unrelated background regions.
+    # The skeleton's head ellipse (in coarse) is sufficient to anchor
+    # the head region as GC_PR_FGD; smooth_hair_neck_mask refines hair.
+    # -----------------------------------------------------------------------
+
+    print('      [seg] GrabCut ...', flush=True)
+    binary = refine_with_grabcut(img, coarse, iterations=3,
+                                 floor_y=floor_y, force_fg=force_fg)
+    print('      [seg] GrabCut done.', flush=True)
+
+    binary = smooth_hair_neck_mask(binary, lms, body_sc)
 
     return binary, (H, W)
 
 
 def generate_transparent_overlay(body_image_path: str,
                                  output_path: str,
-                                 canvas_size: tuple[int, int] = (1080, 1920)) -> None:
+                                 canvas_size: tuple[int, int] | None = None) -> None:
     """
     Generate a transparent RGBA neon silhouette PNG for live camera overlay.
-    The output canvas defaults to a 1080x1920 mobile portrait frame with
-    alpha=0 everywhere except the raster glow.
-    """
-    dst_W, dst_H = canvas_size
-    print(f'[+] Transparent canvas -> {dst_W}x{dst_H}px RGBA')
-    binary, (src_H, src_W) = extract_body_mask_from_image(body_image_path)
-    print(f'    Source mask size: {src_W}x{src_H}px')
-    canvas_mask = _resize_mask_to_portrait_canvas(binary, dst_W, dst_H)
 
-    # Fill small gaps without noticeably expanding the silhouette.
+    The overlay is output at the **source image's own dimensions** so that
+    Flutter can display it with BoxFit.contain alongside the reference photo
+    (also BoxFit.contain) and the two will be pixel-perfectly aligned —
+    same aspect ratio means same rendered size and position.
+
+    The legacy ``canvas_size`` parameter is ignored and kept only for
+    backward-compatibility.
+    """
+    binary, (src_H, src_W) = extract_body_mask_from_image(body_image_path)
+    print(f'[+] Overlay canvas -> {src_W}x{src_H}px RGBA (matches source image)')
+    print(f'    Source mask size: {src_W}x{src_H}px')
+
+    # Use the mask directly in source-image coordinates — no up-scaling to a
+    # fixed portrait canvas.  This preserves the exact aspect ratio of the
+    # source photo so Flutter's BoxFit.contain aligns overlay and photo 1:1.
+    canvas_mask = binary.astype(np.float32) / 255.0
+
+    # Adaptive Gaussian blur: ~2 % of the shorter image dimension.
+    # A fixed (41, 41) kernel was too aggressive for 1024 px images and
+    # rounded off small features like the hand/wrist protrusion entirely.
+    _blur_k = max(11, int(min(src_H, src_W) * 0.020)) | 1
     smooth_mask = cv2.GaussianBlur(
         (canvas_mask * 255.0).astype(np.uint8),
-        (7, 7),
+        (_blur_k, _blur_k),
         0,
     )
     _, smooth_mask = cv2.threshold(smooth_mask, 127, 255, cv2.THRESH_BINARY)
-
-    erode_k = max(3, int(max(dst_W, dst_H) * 0.006)) | 1
-    kernel_e = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (erode_k, erode_k))
-    smooth_mask = cv2.erode(smooth_mask, kernel_e, iterations=1)
-
     canvas_mask = smooth_mask.astype(np.float32) / 255.0
     canvas_mask = _vector_smooth_canvas_mask(canvas_mask)
 

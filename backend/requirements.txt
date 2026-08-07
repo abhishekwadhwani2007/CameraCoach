@@ -6,3 +6,6 @@ tensorflow
 numpy
 scipy
 slowapi
+rembg[gpu]
+mediapipe
+pillow
