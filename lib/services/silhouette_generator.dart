@@ -38,8 +38,8 @@ class SilhouetteGenerator {
     final width = original.width;
     final height = original.height;
 
-    // --- Step 1: Run TFLite to get segmentation mask ---
-    const ts = 256; // model input size
+    // Step 1: run TFLite to extract the per-pixel segmentation mask.
+    const ts = 256; // 256×256 is the model's fixed input resolution
     final resized = img.copyResize(original, width: ts, height: ts);
 
     final inputFlat = Float32List(ts * ts * 3);
@@ -70,7 +70,7 @@ class SilhouetteGenerator {
       return null;
     }
 
-    // --- Step 2: Build boolean mask with skeleton augmentation ---
+    // Step 2: build a boolean mask, then augment it with skeleton lines.
     final mask = List.generate(ts, (_) => List.filled(ts, false));
     for (int y = 0; y < ts; y++) {
       for (int x = 0; x < ts; x++) {
@@ -82,7 +82,7 @@ class SilhouetteGenerator {
       _augmentMaskWithSkeleton(mask, landmarks, width, height, ts);
     }
 
-    // --- Step 3: Extract edges with Morphological Dilation & Smoothing ---
+    // Step 3: smooth the mask edges with morphological dilation and erosion.
     var processed = _dilate(mask, 3);
     processed = _erode(processed, 3);
 
@@ -107,10 +107,10 @@ class SilhouetteGenerator {
       }
     }
 
-    // --- Step 4: Render neon glow in background isolate ---
+    // Step 4: render the neon glow in a background isolate so the UI stays smooth.
     final pngBytes = await compute(_renderNeonGlow, edges);
 
-    // --- Step 5: Save ---
+    // Step 5: write the overlay to the scoped temp directory.
     final scopedPath = await LocalStorageService.getScopedTempPath();
     final out = File(
       '$scopedPath/reference_overlay_${DateTime.now().millisecondsSinceEpoch}.png',
@@ -122,11 +122,11 @@ class SilhouetteGenerator {
   /// Heavy pixel work — runs in a separate isolate via compute().
   static Uint8List _renderNeonGlow(List<Float64List> edges) {
     const ts = 256;
-    // Render at small size — Flutter upscales smoothly since it's all soft glow.
+    // Render at a small size — Flutter upscales smoothly since everything is soft glow.
     const cw = 270;
     const ch = 480;
 
-    // Bilinear upscale edges from 256x256 → 270x480.
+    // Bilinear upscale the edges from 256×256 to the canvas size.
     final edgeUp = List.generate(ch, (_) => Float64List(cw));
     const sxr = ts / cw;
     const syr = ts / ch;
@@ -146,7 +146,7 @@ class SilhouetteGenerator {
       }
     }
 
-    // 3 glow layers (warm white-gold, matching backend aesthetic).
+    // Three additive glow layers (outer spread → mid glow → inner core).
     const layers = [
       (12.0, 0.12, 170, 235, 130),  // outer: warm green glow
       ( 5.0, 0.45, 110, 230,  55),  // mid: brighter green
@@ -172,7 +172,7 @@ class SilhouetteGenerator {
       }
     }
 
-    // Sharp white core.
+    // Tight white core on top of the coloured glow.
     final core = _blur(edgeUp, cw, ch, 0.5);
     for (int y = 0; y < ch; y++) {
       for (int x = 0; x < cw; x++) {
@@ -184,7 +184,7 @@ class SilhouetteGenerator {
       }
     }
 
-    // Write to RGBA image.
+    // Write every pixel to the RGBA canvas.
     final canvas = img.Image(width: cw, height: ch, numChannels: 4);
     img.fill(canvas, color: img.ColorRgba8(0, 0, 0, 0));
     for (int y = 0; y < ch; y++) {
@@ -305,7 +305,7 @@ class SilhouetteGenerator {
       }
     }
 
-    // Body segments
+    // Body limb segments
     line('leftShoulder', 'rightShoulder', 0.35);
     line('leftShoulder', 'leftHip', 0.22);
     line('rightShoulder', 'rightHip', 0.22);
@@ -319,7 +319,7 @@ class SilhouetteGenerator {
     line('rightHip', 'rightKnee', 0.18);
     line('rightKnee', 'rightAnkle', 0.14);
 
-    // Joints
+    // Key joints
     for (final (k, r) in [
       ('nose', 0.15), ('leftEar', 0.12), ('rightEar', 0.12),
       ('leftShoulder', 0.13), ('rightShoulder', 0.13),

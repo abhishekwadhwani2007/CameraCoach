@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 
-// ManualControlsRow — the compact camera-settings display shown in PRO mode.
-// The larger ManualControlsPanel (expandable picker UI) was removed because
-// it had zero callers in the app. Only this row widget is used, by bottom_bar.dart.
+/// Compact row showing live camera settings (ISO, Shutter, WB, EV, MF) in PRO mode.
+/// Rendered at the top of the bottom bar by [BottomBar].
 class ManualControlsRow extends StatelessWidget {
   final String iso;
   final String shutter;

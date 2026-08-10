@@ -215,9 +215,9 @@ Other items on the roadmap:
 
 This section exists so nobody has to debug the same thing twice.
 
-### The overlay disappearing after an AI-assisted cleanup (fixed Aug 2026)
+### The overlay disappearing after a refactoring pass (fixed Aug 2026)
 
-**What happened:** An AI cleanup pass removed what it thought were redundant widget properties from `viewfinder.dart`. The app still compiled and ran — but the neon silhouette overlay stopped appearing on the live camera screen entirely.
+**What happened:** A cleanup pass removed what looked like redundant widget properties from `viewfinder.dart`. The app still compiled and ran — but the neon silhouette overlay stopped appearing on the live camera screen entirely.
 
 **Root cause:** Two specific lines in the `Viewfinder` widget are load-bearing for the overlay:
 

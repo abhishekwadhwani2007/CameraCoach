@@ -135,7 +135,6 @@ class _PoseConfirmationScreenState extends State<PoseConfirmationScreen> {
       ),
       body: Stack(
         children: [
-          // Black background
           Container(color: Colors.black),
 
           // Photo + overlay scaled together (1.2×) so the figure fills the
@@ -167,7 +166,6 @@ class _PoseConfirmationScreenState extends State<PoseConfirmationScreen> {
               ),
             ),
 
-          // Loading spinner
           if (_isProcessing)
             const Center(
               child: Column(
@@ -181,7 +179,6 @@ class _PoseConfirmationScreenState extends State<PoseConfirmationScreen> {
               ),
             ),
 
-          // No-person detected message
           if (!_isProcessing && _landmarks == null)
             const Center(
               child: Padding(

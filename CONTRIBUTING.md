@@ -8,7 +8,7 @@ Thanks for taking a look at the code. Before you change anything, please read th
 
 **Never touch the live overlay, pose matching, or auto-capture pipeline without a full plan and explicit approval.**
 
-These features took months to get right. A previous AI-assisted cleanup silently broke the overlay by removing two lines that looked redundant but weren't. The app compiled fine, but the silhouette disappeared entirely on device. See the [What Broke Once](README.md#-what-broke-once-and-how-we-fixed-it) section in the README for the full story.
+These features took months to get right. A previous cleanup pass silently broke the overlay by removing two lines that looked redundant but weren't. The app compiled fine, but the silhouette disappeared entirely on device. See the [What Broke Once](README.md#-what-broke-once-and-how-we-fixed-it) section in the README for the full story.
 
 ---
 

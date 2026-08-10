@@ -299,7 +299,7 @@ class _LiveCoachScreenState extends State<LiveCoachScreen>
         timer.cancel();
         return;
       }
-      setState(() => _countdownSeconds--);  
+      setState(() => _countdownSeconds--);
       if (_countdownSeconds <= 0) {
         timer.cancel();
         _cancelAutoCapture();
