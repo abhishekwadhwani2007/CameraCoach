@@ -9,8 +9,19 @@ rootProject.buildDir = "../build"
 subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
 }
+
 subprojects {
     project.evaluationDependsOn(":app")
+}
+
+// Dynamically align Kotlin's jvmTarget with each subproject's Java targetCompatibility
+subprojects {
+    tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach { kotlinTask ->
+        def javaCompileTask = project.tasks.findByName(kotlinTask.name.replace("Kotlin", "JavaWithJavac"))
+        if (javaCompileTask instanceof JavaCompile && javaCompileTask.targetCompatibility) {
+            kotlinTask.kotlinOptions.jvmTarget = javaCompileTask.targetCompatibility
+        }
+    }
 }
 
 tasks.register("clean", Delete) {

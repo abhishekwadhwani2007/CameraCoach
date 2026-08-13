@@ -6,6 +6,9 @@ import '../../services/local_storage_service.dart';
 import '../../services/photo_quality_analyzer.dart';
 import '../../services/silhouette_generator.dart';
 import '../../utils/logger.dart';
+import '../../models/overlay_mask.dart';
+import '../../services/mask_upload_service.dart';
+import '../draw_erase/editable_overlay_screen.dart';
 
 class PoseConfirmationScreen extends StatefulWidget {
   final String imagePath;
@@ -113,6 +116,41 @@ class _PoseConfirmationScreenState extends State<PoseConfirmationScreen> {
     }
   }
 
+  // Opens the overlay editor. If the user saves a correction, we update
+  // _outlinePath and fire off an upload in the background — the save flow
+  // is completely unaffected either way.
+  Future<void> _openOverlayEditor() async {
+    if (_outlinePath == null) return;
+
+    final result = await Navigator.push<OverlayMask>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => EditableOverlayScreen(
+          imageFile: File(widget.imagePath),
+          aiMaskFile: File(_outlinePath!),
+        ),
+      ),
+    );
+
+    if (result == null || !mounted) return;
+
+    if (result.userEdited) {
+      // Evict the old overlay from the image cache so the new one renders.
+      await FileImage(File(_outlinePath!)).evict();
+      setState(() => _outlinePath = result.maskFile.path);
+
+      // Upload original + AI mask + corrected mask for model training.
+      // Fire-and-forget — never blocks the user.
+      MaskUploadService.uploadCorrection(
+        originalImage: File(widget.imagePath),
+        aiMask: File(result.aiMaskPath),
+        correctedMask: result.maskFile,
+        deviceId: 'device',
+      );
+
+      AppLogger.debug('PoseConfirmationScreen: overlay updated by user edit.');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -120,6 +158,12 @@ class _PoseConfirmationScreenState extends State<PoseConfirmationScreen> {
       appBar: AppBar(
         title: const Text('Silhouette Preview'),
         actions: [
+          // Only show the editor button once the AI mask is ready.
+          if (!_isProcessing && _outlinePath != null)
+            TextButton(
+              onPressed: _isSaving ? null : _openOverlayEditor,
+              child: const Text('Edit Overlay'),
+            ),
           if (!_isProcessing && _landmarks != null)
             TextButton(
               onPressed: _isSaving ? null : _saveReference,

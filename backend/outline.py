@@ -10,32 +10,34 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_PATH = os.path.join(SCRIPT_DIR, 'models', 'pose_landmark_full.tflite')
 
 # ---------------------------------------------------------------------------
-# Optional segmentation backends
-# Architecture:
-#   Tier-1  MediaPipe selfie_segmentation   – fast, init at startup, no download
-#   Tier-2  rembg u2net_human_seg           – best quality, runs in subprocess
-#                                             (isolated from TF GPU context)
-#   Tier-3  GrabCut                         – always available, last resort
+# Segmentation notes:
+#   The active API path uses the TFLite pose model's coarse segmentation,
+#   a landmark-based skeleton mask, and GrabCut refinement.
+#
+#   MediaPipe selfie segmentation and rembg are kept below as inactive
+#   experimental fallbacks. They are not wired into the production path today,
+#   but keeping their setup visible makes future comparison work easier.
 # ---------------------------------------------------------------------------
 
-# Tier 1 – MediaPipe (initializes in <2 s, model is bundled with the package)
+# Inactive fallback: MediaPipe initializes quickly and ships its own model, but
+# refine_with_mediapipe() is not called by the current overlay pipeline.
 _MP_SELFIE_SEG = None
 try:
     import mediapipe as _mp_mod
     _MP_SELFIE_SEG = _mp_mod.solutions.selfie_segmentation.SelfieSegmentation(
         model_selection=1)          # model 1 = landscape (full-body, more accurate)
-    print('[outline] MediaPipe selfie_segmentation ready (Tier-1 active)', flush=True)
+    print('[outline] MediaPipe selfie_segmentation ready (inactive fallback)', flush=True)
 except Exception as _e:
-    print(f'[outline] MediaPipe unavailable ({_e}); Tier-1 disabled.', flush=True)
+    print(f'[outline] MediaPipe unavailable ({_e}); fallback disabled.', flush=True)
 
-# Tier 2 – rembg worker path (no import here; called as subprocess to avoid
-# onnxruntime-gpu deadlock with TensorFlow)
+# Inactive fallback: rembg stays in a subprocess so ONNX Runtime cannot fight
+# TensorFlow for the same GPU/runtime state if this path is re-enabled later.
 _REMBG_WORKER = os.path.join(SCRIPT_DIR, 'rembg_worker.py')
 _REMBG_AVAILABLE = os.path.exists(_REMBG_WORKER)
 if _REMBG_AVAILABLE:
-    print('[outline] rembg subprocess worker found (Tier-2 active)', flush=True)
+    print('[outline] rembg subprocess worker found (inactive fallback)', flush=True)
 else:
-    print('[outline] rembg_worker.py not found; Tier-2 disabled.', flush=True)
+    print('[outline] rembg_worker.py not found; fallback disabled.', flush=True)
 
 # Glow layers: radius, alpha, and BGR colour.
 GLOW_LAYERS = [
@@ -152,16 +154,9 @@ def _draw_arm_force_fg(force_fg: np.ndarray, lms: np.ndarray, body_scale: float)
 def _build_kettlebell_ellipse(lms: np.ndarray, body_scale: float,
                                H: int, W: int):
     """
-    FIX (hump): Build a tight kettlebell ellipse that sits *in front of*
-    the body rather than bleeding into the arm silhouette.
-
-    Key changes vs original:
-    - The ellipse is shifted toward the kettlebell side (away from torso
-      centre) so it doesn't overlap the forearm outline.
-    - ell_ry is capped so the ellipse doesn't extend back up into the
-      forearm area and create a hump.
-    - The ellipse is only drawn when the wrists are close AND the ball
-      is plausibly in front of the torso (checked via torso_cx).
+    Add a conservative kettlebell mass when both wrists suggest the user is
+    holding one. The ellipse is nudged away from the torso so the ball reads as
+    separate from the forearm instead of thickening the arm silhouette.
     """
     lw, rw = lms[15], lms[16]
     if lw[3] < 0.3 or rw[3] < 0.3:
@@ -842,13 +837,10 @@ def extract_body_mask_from_image(body_image_path: str) -> tuple[np.ndarray, tupl
         cv2.ellipse(force_fg, (ell_cx, ell_cy), (ell_rx, ell_ry),
                     0, 0, 360, 255, -1, lineType=cv2.LINE_AA)
 
-    # -----------------------------------------------------------------------
-    # Segmentation: GrabCut guided by the coarse skeleton mask.
-    # GrabCut uses image colour statistics constrained to the coarse mask —
-    # it cannot hallucinate people in unrelated background regions.
-    # The skeleton's head ellipse (in coarse) is sufficient to anchor
-    # the head region as GC_PR_FGD; smooth_hair_neck_mask refines hair.
-    # -----------------------------------------------------------------------
+    # The pose model gives us two useful hints: a soft person segmentation and
+    # landmarks for limbs that are easy for generic segmentation to miss.
+    # Combining them gives GrabCut a tight starting point, while force_fg keeps
+    # hands, arms, and the optional kettlebell from being erased as background.
 
     print('      [seg] GrabCut ...', flush=True)
     binary = refine_with_grabcut(img, coarse, iterations=3,
@@ -866,10 +858,9 @@ def generate_transparent_overlay(body_image_path: str,
     """
     Generate a transparent RGBA neon silhouette PNG for live camera overlay.
 
-    The overlay is output at the **source image's own dimensions** so that
+    The overlay is output at the source image's own dimensions so that
     Flutter can display it with BoxFit.contain alongside the reference photo
-    (also BoxFit.contain) and the two will be pixel-perfectly aligned —
-    same aspect ratio means same rendered size and position.
+    and the two stay pixel-aligned through the same scaling math.
 
     The legacy ``canvas_size`` parameter is ignored and kept only for
     backward-compatibility.
@@ -878,9 +869,8 @@ def generate_transparent_overlay(body_image_path: str,
     print(f'[+] Overlay canvas -> {src_W}x{src_H}px RGBA (matches source image)')
     print(f'    Source mask size: {src_W}x{src_H}px')
 
-    # Use the mask directly in source-image coordinates — no up-scaling to a
-    # fixed portrait canvas.  This preserves the exact aspect ratio of the
-    # source photo so Flutter's BoxFit.contain aligns overlay and photo 1:1.
+    # Keep the mask in source-image coordinates. A fixed portrait canvas would
+    # change the aspect ratio and make Flutter's overlay/photo alignment drift.
     canvas_mask = binary.astype(np.float32) / 255.0
 
     # Adaptive Gaussian blur: ~2 % of the shorter image dimension.
@@ -900,7 +890,8 @@ def generate_transparent_overlay(body_image_path: str,
     rgba = _render_raster_neon_rgba(canvas_mask)
 
     print(f'[+] Saving transparent PNG -> {output_path}')
-    cv2.imwrite(output_path, rgba)
+    if not cv2.imwrite(output_path, rgba):
+        raise RuntimeError(f'Failed to save transparent overlay: {output_path}')
     print('Done!')
 
 

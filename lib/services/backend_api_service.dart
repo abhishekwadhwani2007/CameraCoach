@@ -40,14 +40,28 @@ class BackendApiService {
       }
 
       final uri = Uri.parse('$_baseUrl/api/generate_overlay');
+      final fileName = imagePath.split(RegExp(r'[/\\]')).last;
+      final ext = fileName.contains('.') ? fileName.split('.').last.toLowerCase() : '';
+      const validExts = {'jpg', 'jpeg', 'png', 'webp'};
+      final safeFileName = validExts.contains(ext) ? fileName : 'upload.jpg';
+
       final request = http.MultipartRequest('POST', uri)
-        ..files.add(await http.MultipartFile.fromPath('file', imagePath));
+        ..files.add(
+          await http.MultipartFile.fromPath(
+            'file',
+            imagePath,
+            filename: safeFileName,
+          ),
+        );
 
       final streamed = await request.send().timeout(_requestTimeout);
 
       AppLogger.debug('generateOverlay: HTTP ${streamed.statusCode}');
       if (streamed.statusCode != 200) {
-        AppLogger.error('generateOverlay failed: HTTP ${streamed.statusCode}');
+        final errBody = await streamed.stream.bytesToString();
+        AppLogger.error(
+          'generateOverlay failed: HTTP ${streamed.statusCode} - $errBody',
+        );
         return null;
       }
 

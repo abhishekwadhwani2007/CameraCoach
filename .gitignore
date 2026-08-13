@@ -20,6 +20,7 @@ venv/
 .venv/
 env/
 .env/
+backend/data/
 
 # Windows
 Thumbs.db

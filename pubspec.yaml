@@ -37,6 +37,11 @@ dependencies:
   cupertino_icons: ^1.0.8
   exif: ^3.3.0
 
+  # Manual overlay editor — lets users draw/erase corrections on the AI-generated
+  # pose mask before saving a reference. Chosen for its built-in brush/erase,
+  # undo-redo stack, and direct PNG mask export.
+  flutter_mask_painter: ^1.0.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

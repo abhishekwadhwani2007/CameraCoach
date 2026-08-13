@@ -1,6 +1,9 @@
 """
-Standalone rembg worker – called as a subprocess by outline.py.
-Runs in its own Python process so it never conflicts with TensorFlow's GPU context.
+Inactive rembg fallback worker.
+
+The active overlay pipeline in outline.py does not call this file today. It is
+kept as a small subprocess-based fallback for future segmentation experiments,
+where rembg can run without sharing TensorFlow's runtime state.
 
 Usage:
     python rembg_worker.py <input_image_path> <output_mask_path>
@@ -29,7 +32,8 @@ def main():
         from PIL import Image
         from rembg import remove, new_session
 
-        # CPU-only ONNX provider – no CUDA conflict since TF is not loaded here
+        # Keep rembg on CPU so this worker stays isolated from TensorFlow/GPU
+        # state if the fallback path is re-enabled later.
         session = new_session(
             'u2net_human_seg',
             providers=['CPUExecutionProvider'],
@@ -43,18 +47,20 @@ def main():
         rgb     = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
         pil_img = Image.fromarray(rgb)
 
-        # Remove background -> RGBA PIL image
+        # rembg returns an RGBA image; the alpha channel is the foreground mask
+        # outline.py expects from this worker.
         result = remove(pil_img, session=session)
 
-        # Extract alpha as grayscale mask
         alpha = np.array(result)[:, :, 3]          # 0-255
 
-        # Resize to match original image dimensions
+        # Match the original image size so callers can combine this mask with
+        # pose landmarks in the same coordinate space.
         H, W = img_bgr.shape[:2]
         alpha = cv2.resize(alpha, (W, H), interpolation=cv2.INTER_LINEAR)
         mask  = (alpha > 127).astype('uint8') * 255
 
-        cv2.imwrite(output_path, mask)
+        if not cv2.imwrite(output_path, mask):
+            raise RuntimeError(f"Failed to write mask: {output_path}")
         print(f"[rembg_worker] mask saved -> {output_path}", flush=True)
         sys.exit(0)
 
