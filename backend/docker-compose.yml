@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  pose_coach_api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pose_coach_backend
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - corrections_data:/app/data/corrections
+
+volumes:
+  corrections_data:
+    driver: local

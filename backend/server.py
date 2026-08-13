@@ -1,11 +1,8 @@
+import logging
 import sys
 import traceback
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-
-# Keep Windows console logging UTF-8 safe.
-sys.stdout.reconfigure(encoding="utf-8")
-sys.stderr.reconfigure(encoding="utf-8")
 
 from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,11 +14,26 @@ from slowapi.errors import RateLimitExceeded
 from outline import generate_transparent_overlay
 
 
+# Reconfigure before any logging so UTF-8 emoji / non-ASCII chars don't crash
+# Windows terminals or cloud log collectors.
+sys.stdout.reconfigure(encoding="utf-8")
+sys.stderr.reconfigure(encoding="utf-8")
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    datefmt="%H:%M:%S",
+    stream=sys.stdout,
+)
+logger = logging.getLogger("posecoach")
+
 limiter = Limiter(key_func=get_remote_address)
 app = FastAPI(title="PoseCoach Overlay API")
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+# CORS is open because the app can run on any device IP. Tighten to specific
+# origins if you ever expose this publicly beyond Hugging Face Spaces.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -30,23 +42,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# We read uploads in 1 MB chunks and bail early, so an oversized file never
+# gets fully buffered into memory before we reject it.
 _MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
 
-# Validate the client-provided type before processing the upload.
 _ALLOWED_MIME = {"image/jpeg", "image/png", "image/webp"}
-
 _ALLOWED_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp"}
 
 
 @app.get("/")
 @app.get("/health")
 async def health_check():
-    """Health check endpoint for cloud load balancers and container monitoring."""
+    """Liveness probe for Hugging Face Spaces and any upstream load balancer."""
     return {"status": "ok", "service": "PoseCoach Overlay API", "version": "1.0.0"}
 
 
-
 def _cleanup(paths: list[str | None]) -> None:
+    """Delete temp files silently. Called as a background task so cleanup
+    happens after the response has finished streaming, not before."""
     for path in paths:
         if not path:
             continue
@@ -63,32 +76,37 @@ async def generate_overlay(
     file: UploadFile,
     background_tasks: BackgroundTasks,
 ) -> FileResponse:
-    print("\n=== NEW REQUEST ===", flush=True)
+    """
+    Accept a reference photo and return a transparent neon-glow silhouette PNG
+    ready to overlay on the Flutter app's live camera feed.
+    """
+    logger.info("Incoming overlay request")
 
-    # Some mobile upload stacks send a generic type even for valid images.
-    if file.content_type not in _ALLOWED_MIME and file.content_type != "application/octet-stream" and file.content_type != "application/x-www-form-urlencoded":
-        print(f"[WARN] Non-standard MIME type: {file.content_type} (proceeding)", flush=True)
+    # Flutter's multipart encoder sometimes sends "application/octet-stream"
+    # even for valid JPEGs. We accept it — just log a note so we have a trail
+    # if something breaks.
+    if (
+        file.content_type not in _ALLOWED_MIME
+        and file.content_type not in {"application/octet-stream", "application/x-www-form-urlencoded"}
+    ):
+        logger.warning("Non-standard MIME type: %s — proceeding anyway", file.content_type)
 
     raw_suffix = Path(file.filename or "upload.jpg").suffix.lower()
     safe_input_suffix = raw_suffix if raw_suffix in _ALLOWED_SUFFIXES else ".jpg"
 
-    # Read in chunks so oversized uploads are rejected before loading fully.
     file_contents = bytearray()
     try:
         while True:
             chunk = await file.read(1024 * 1024)
             if not chunk:
                 break
-
             file_contents.extend(chunk)
             if len(file_contents) > _MAX_UPLOAD_BYTES:
-                print(
-                    f"[REJECT] Upload exceeds {_MAX_UPLOAD_BYTES // (1024*1024)} MB limit",
-                    flush=True,
-                )
+                limit_mb = _MAX_UPLOAD_BYTES // (1024 * 1024)
+                logger.warning("Upload rejected — exceeds %d MB limit", limit_mb)
                 raise HTTPException(
                     status_code=413,
-                    detail=f"File too large. Maximum allowed size is {_MAX_UPLOAD_BYTES // (1024*1024)} MB.",
+                    detail=f"File too large. Maximum allowed size is {limit_mb} MB.",
                 )
     finally:
         await file.close()
@@ -96,13 +114,14 @@ async def generate_overlay(
     if len(file_contents) == 0:
         raise HTTPException(status_code=400, detail="Uploaded file is empty.")
 
-    print(f"[OK] Received {len(file_contents):,} bytes (type={file.content_type})", flush=True)
+    logger.info("Received %.1f KB (type=%s)", len(file_contents) / 1024, file.content_type)
 
     input_path = None
     output_path = None
     try:
-        # Close temp handles before processing. On Windows, open
-        # NamedTemporaryFile handles can block OpenCV from reading/writing them.
+        # Close the handles immediately after writing. On Windows, keeping them
+        # open while OpenCV or TFLite tries to read the same path causes silent
+        # failures because the OS locks the file.
         temp_in = NamedTemporaryFile(delete=False, suffix=safe_input_suffix)
         input_path = temp_in.name
         try:
@@ -113,24 +132,23 @@ async def generate_overlay(
         temp_out = NamedTemporaryFile(delete=False, suffix=".png")
         output_path = temp_out.name
         temp_out.close()
+
     except Exception:
         _cleanup([input_path, output_path])
         raise
 
-    print("[START] generate_transparent_overlay() ...", flush=True)
+    logger.info("Starting silhouette generation...")
     try:
         generate_transparent_overlay(input_path, output_path)
-        print("[OK] Overlay generated successfully", flush=True)
+        logger.info("Silhouette generated successfully")
     except Exception:
-        print("[CRASH] Exception in generate_transparent_overlay():", flush=True)
-        print(traceback.format_exc(), flush=True)
+        logger.error("Silhouette generation failed:\n%s", traceback.format_exc())
         _cleanup([input_path, output_path])
         raise HTTPException(status_code=500, detail="Overlay generation failed.")
 
-    # The response streams the generated PNG, so cleanup runs after send.
     background_tasks.add_task(_cleanup, [input_path, output_path])
 
-    print(f"[SEND] Dispatching FileResponse -> {output_path}", flush=True)
+    logger.info("Sending silhouette response")
     return FileResponse(
         output_path,
         media_type="image/png",
@@ -151,15 +169,25 @@ async def save_mask_correction(
     ai_mask: UploadFile = File(...),
     corrected_mask: UploadFile = File(...),
 ):
-    print("\n=== MASK CORRECTION UPLOAD ===", flush=True)
-    print(f"[CORRECTION] Device: {device_id}, Confidence: {confidence}, Time: {timestamp}", flush=True)
+    """
+    Store a user-corrected mask alongside the original photo and the AI's first
+    attempt. These triplets are our training data for improving segmentation
+    quality over time. Files are grouped by device_id for easy tracing.
+    """
+    logger.info(
+        "Mask correction upload — device=%s confidence=%s time=%s",
+        device_id, confidence, timestamp,
+    )
 
     out_dir = Path("data/corrections") / device_id
     out_dir.mkdir(parents=True, exist_ok=True)
+
+    # Colons and dots in ISO timestamps aren't safe as filename characters
+    # on all filesystems, so swap them out before using the timestamp as a prefix.
     ts_clean = timestamp.replace(":", "-").replace(".", "-")
 
     orig_path = out_dir / f"{ts_clean}_original.jpg"
-    ai_path = out_dir / f"{ts_clean}_ai_mask.png"
+    ai_path   = out_dir / f"{ts_clean}_ai_mask.png"
     corr_path = out_dir / f"{ts_clean}_corrected_mask.png"
 
     with open(orig_path, "wb") as f:
@@ -169,6 +197,5 @@ async def save_mask_correction(
     with open(corr_path, "wb") as f:
         f.write(await corrected_mask.read())
 
-    print(f"[OK] Saved correction files to {out_dir}", flush=True)
+    logger.info("Correction saved to %s", out_dir)
     return {"status": "ok", "message": "Mask correction saved successfully."}
-

@@ -1,11 +1,11 @@
 fastapi
 uvicorn
 python-multipart
-opencv-python
+opencv-python-headless
 tensorflow
 numpy
 scipy
 slowapi
-rembg[gpu]
+rembg
 mediapipe
 pillow
