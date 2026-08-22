@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../core/constants.dart';
+import '../../core/app_colors.dart';
+import '../../core/app_text_styles.dart';
 import '../../core/theme.dart';
 import '../../services/photo_quality_analyzer.dart';
 import '../../widgets/metric_card.dart';
@@ -36,42 +38,36 @@ class _CaptureReviewScreenState extends State<CaptureReviewScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
-      appBar: AppBar(
-        title: const Text(
-          'Capture Analysis',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.close_rounded),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
-      body: FutureBuilder<Map<String, dynamic>>(
-        future: _analysisFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(
-                    color: AppTheme.primaryColor,
-                    strokeWidth: 3,
+      backgroundColor: AppColors.background,
+      body: Stack(
+        children: [
+          // Main scrollable content
+          FutureBuilder<Map<String, dynamic>>(
+            future: _analysisFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(
+                        color: AppColors.primaryText,
+                        strokeWidth: 3,
+                      ),
+                      SizedBox(height: 16),
+                      Text(
+                        'Analyzing capture details...',
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          color: AppColors.secondaryText,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                    ],
                   ),
-                  SizedBox(height: 16),
-                  Text(
-                    'Analyzing capture details...',
-                    style: TextStyle(
-                      color: AppTheme.textSecondary,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }
+                );
+              }
 
           if (snapshot.hasError || !snapshot.hasData) {
             return Center(
@@ -304,6 +300,48 @@ class _CaptureReviewScreenState extends State<CaptureReviewScreen> {
           );
         },
       ),
-    );
+      // ── Floating top navigation pill ──────────────────────────────────
+      SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: Container(
+            height: 50,
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(25),
+              border: Border.all(color: AppColors.border, width: 1),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.35),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    color: AppColors.primaryText,
+                    size: 18,
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    'Capture Analysis',
+                    style: AppTextStyles.pageTitle.copyWith(fontSize: 17),
+                  ),
+                ),
+                const SizedBox(width: 48), // Balance for back button
+              ],
+            ),
+          ),
+        ),
+      ),
+    ], // Close Stack children
+  ), // Close Stack
+); // Close Scaffold
   }
 }

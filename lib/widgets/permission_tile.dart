@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
-import '../../core/theme.dart';
+import '../core/app_colors.dart';
+import '../core/app_text_styles.dart';
 
 /// Reusable widget showing a permission row with status indicator and retry button.
 class PermissionTile extends StatelessWidget {
@@ -20,9 +21,9 @@ class PermissionTile extends StatelessWidget {
   });
 
   Color get _statusColor {
-    if (status.isGranted) return AppTheme.successColor;
-    if (status.isPermanentlyDenied) return AppTheme.errorColor;
-    return AppTheme.warningColor;
+    if (status.isGranted) return AppColors.success;
+    if (status.isPermanentlyDenied) return AppColors.error;
+    return AppColors.warning;
   }
 
   IconData get _statusIcon {
@@ -42,7 +43,7 @@ class PermissionTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: _statusColor.withValues(alpha: 0.3),
@@ -50,7 +51,7 @@ class PermissionTile extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: Colors.black.withValues(alpha: 0.2),
             blurRadius: 6,
             offset: const Offset(0, 2),
           ),
@@ -61,35 +62,37 @@ class PermissionTile extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withValues(alpha: 0.1),
+              color: AppColors.yellow.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(icon, color: AppTheme.primaryColor, size: 24),
+            child: Icon(icon, color: AppColors.yellow, size: 24),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 15,
-                        color: AppTheme.textPrimary)),
+                Text(
+                  title,
+                  style: AppTextStyles.primaryBody.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
                 const SizedBox(height: 2),
-                Text(subtitle,
-                    style: const TextStyle(
-                        fontSize: 12, color: AppTheme.textSecondary)),
+                Text(subtitle, style: AppTextStyles.secondaryBody),
                 const SizedBox(height: 6),
                 Row(
                   children: [
                     Icon(_statusIcon, size: 14, color: _statusColor),
                     const SizedBox(width: 4),
-                    Text(_statusLabel,
-                        style: TextStyle(
-                            fontSize: 12,
-                            color: _statusColor,
-                            fontWeight: FontWeight.w500)),
+                    Text(
+                      _statusLabel,
+                      style: AppTextStyles.secondaryBody.copyWith(
+                        fontSize: 12,
+                        color: _statusColor,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                   ],
                 ),
               ],
@@ -102,10 +105,10 @@ class PermissionTile extends StatelessWidget {
                   : onRequest,
               child: Text(
                 status.isPermanentlyDenied ? 'Settings' : 'Allow',
-                style: const TextStyle(
-                    color: AppTheme.primaryColor,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13),
+                style: AppTextStyles.buttonSecondary.copyWith(
+                  color: AppColors.yellow,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
         ],

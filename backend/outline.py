@@ -9,35 +9,6 @@ warnings.filterwarnings('ignore')
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_PATH = os.path.join(SCRIPT_DIR, 'models', 'pose_landmark_full.tflite')
 
-# ---------------------------------------------------------------------------
-# Segmentation notes:
-#   The active API path uses the TFLite pose model's coarse segmentation,
-#   a landmark-based skeleton mask, and GrabCut refinement.
-#
-#   MediaPipe selfie segmentation and rembg are kept below as inactive
-#   experimental fallbacks. They are not wired into the production path today,
-#   but keeping their setup visible makes future comparison work easier.
-# ---------------------------------------------------------------------------
-
-# Inactive fallback: MediaPipe initializes quickly and ships its own model, but
-# refine_with_mediapipe() is not called by the current overlay pipeline.
-_MP_SELFIE_SEG = None
-try:
-    import mediapipe as _mp_mod
-    _MP_SELFIE_SEG = _mp_mod.solutions.selfie_segmentation.SelfieSegmentation(
-        model_selection=1)          # model 1 = landscape (full-body, more accurate)
-    print('[outline] MediaPipe selfie_segmentation ready (inactive fallback)', flush=True)
-except Exception as _e:
-    print(f'[outline] MediaPipe unavailable ({_e}); fallback disabled.', flush=True)
-
-# Inactive fallback: rembg stays in a subprocess so ONNX Runtime cannot fight
-# TensorFlow for the same GPU/runtime state if this path is re-enabled later.
-_REMBG_WORKER = os.path.join(SCRIPT_DIR, 'rembg_worker.py')
-_REMBG_AVAILABLE = os.path.exists(_REMBG_WORKER)
-if _REMBG_AVAILABLE:
-    print('[outline] rembg subprocess worker found (inactive fallback)', flush=True)
-else:
-    print('[outline] rembg_worker.py not found; fallback disabled.', flush=True)
 
 # Glow layers: radius, alpha, and BGR colour.
 GLOW_LAYERS = [
@@ -370,93 +341,7 @@ def combine_masks(seg_mask: np.ndarray, skeleton_mask: np.ndarray) -> np.ndarray
 
 
 # ---------------------------------------------------------------------------
-# Tier-1: MediaPipe Selfie Segmentation (fast, no download, bundled model)
-# ---------------------------------------------------------------------------
-def refine_with_mediapipe(img_bgr: np.ndarray,
-                          skeleton_mask: np.ndarray) -> np.ndarray:
-    """
-    Segment the person using MediaPipe selfie_segmentation and return a
-    binary foreground mask merged with the skeleton.
-    """
-    rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
-    result = _MP_SELFIE_SEG.process(rgb)
-    seg = result.segmentation_mask          # float32  H x W  in [0, 1]
-    H, W = img_bgr.shape[:2]
-    seg = cv2.resize(seg, (W, H), interpolation=cv2.INTER_LINEAR)
-    binary = (seg > 0.5).astype(np.uint8) * 255
-
-    # Union with skeleton so limbs are never lost
-    binary = np.maximum(binary, skeleton_mask)
-
-    # Closing to fill small holes in clothing and bridge small inner-limb gaps.
-    # 0.007 × max_dim gives a 7 px kernel at 1024 px (vs 5 px at 0.005),
-    # which is enough to close the inner-thigh shadow without merging the feet.
-    k = max(5, int(max(H, W) * 0.007)) | 1
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k))
-    binary = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel, iterations=2)
-    return binary
-
-
-# ---------------------------------------------------------------------------
-# Tier-2: rembg U²-Net via isolated subprocess (avoids TF/ONNX GPU conflict)
-# ---------------------------------------------------------------------------
-def refine_with_rembg(img_bgr: np.ndarray,
-                      skeleton_mask: np.ndarray,
-                      timeout: int = 60) -> np.ndarray:
-    """
-    Run rembg in a separate Python process so its onnxruntime-gpu never
-    conflicts with TensorFlow's CUDA context.  Falls back gracefully on timeout
-    or any subprocess error.
-    """
-    import tempfile, subprocess
-
-    H, W = img_bgr.shape[:2]
-
-    # Write the input image to a temp file
-    with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp_in:
-        tmp_in_path = tmp_in.name
-    with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp_out:
-        tmp_out_path = tmp_out.name
-
-    try:
-        cv2.imwrite(tmp_in_path, img_bgr)
-
-        result = subprocess.run(
-            [sys.executable, _REMBG_WORKER, tmp_in_path, tmp_out_path],
-            timeout=timeout,
-            capture_output=True,
-        )
-
-        if result.returncode != 0:
-            stderr = result.stderr.decode(errors='replace')
-            raise RuntimeError(f'rembg_worker exited {result.returncode}: {stderr[:200]}')
-
-        mask = cv2.imread(tmp_out_path, cv2.IMREAD_GRAYSCALE)
-        if mask is None:
-            raise RuntimeError('rembg_worker produced no output mask')
-
-        mask = cv2.resize(mask, (W, H), interpolation=cv2.INTER_LINEAR)
-        binary = (mask > 127).astype(np.uint8) * 255
-
-        # Union with skeleton
-        binary = np.maximum(binary, skeleton_mask)
-
-        # Closing
-        k = max(5, int(max(H, W) * 0.005)) | 1
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k))
-        binary = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel, iterations=2)
-        return binary
-
-    finally:
-        for p in (tmp_in_path, tmp_out_path):
-            try:
-                os.remove(p)
-            except OSError:
-                pass
-
-
-# ---------------------------------------------------------------------------
-# Tier-3 (original): GrabCut
+# GrabCut refinement
 # ---------------------------------------------------------------------------
 def refine_with_grabcut(img_bgr: np.ndarray, coarse_mask: np.ndarray,
                         iterations: int = 3,

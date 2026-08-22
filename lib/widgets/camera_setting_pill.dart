@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../core/theme.dart';
+import '../core/app_colors.dart';
+import '../core/app_text_styles.dart';
 
 /// Pill widget displaying a hardware camera setting (ISO, Shutter Speed, etc.).
 class CameraSettingPill extends StatelessWidget {
@@ -18,25 +19,11 @@ class CameraSettingPill extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Icon(icon, color: AppTheme.primaryColor, size: 20),
+        Icon(icon, color: AppColors.yellow, size: 20),
         const SizedBox(height: 6),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 11,
-            color: AppTheme.textSecondary,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
+        Text(label, style: AppTextStyles.cameraLabel),
         const SizedBox(height: 2),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-            color: AppTheme.textPrimary,
-          ),
-        ),
+        Text(value, style: AppTextStyles.cameraValue),
       ],
     );
   }

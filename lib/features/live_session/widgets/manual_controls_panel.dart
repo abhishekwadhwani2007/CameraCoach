@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../../core/app_colors.dart';
+import '../../../core/app_text_styles.dart';
 
 /// Compact row showing live camera settings (ISO, Shutter, WB, EV, MF) in PRO mode.
 /// Rendered at the top of the bottom bar by [BottomBar].
@@ -32,35 +34,30 @@ class ManualControlsRow extends StatelessWidget {
       children: items
           .map(
             (item) => Container(
-              width: 52,
-              height: 52,
+              width: 46,
+              height: 46,
               margin: const EdgeInsets.symmetric(horizontal: 4),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.black54,
-                border: Border.all(color: Colors.white24),
+                color: AppColors.lightSurface,
+                border: Border.all(color: AppColors.border, width: 1),
               ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
                     item.$1,
-                    style: const TextStyle(
-                      color: Colors.white38,
+                    style: AppTextStyles.cameraLabel.copyWith(
                       fontSize: 9,
-                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.4,
                     ),
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 2),
                   Text(
                     item.$2,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: AppTextStyles.cameraValue.copyWith(fontSize: 10),
                   ),
                 ],
               ),

@@ -8,6 +8,8 @@ import '../../services/silhouette_generator.dart';
 import '../../utils/logger.dart';
 import '../../models/overlay_mask.dart';
 import '../../services/mask_upload_service.dart';
+import '../../core/app_colors.dart';
+import '../../core/app_text_styles.dart';
 import '../draw_erase/editable_overlay_screen.dart';
 
 class PoseConfirmationScreen extends StatefulWidget {
@@ -155,35 +157,11 @@ class _PoseConfirmationScreenState extends State<PoseConfirmationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Silhouette Preview'),
-        actions: [
-          // Only show the editor button once the AI mask is ready.
-          if (!_isProcessing && _outlinePath != null)
-            TextButton(
-              onPressed: _isSaving ? null : _openOverlayEditor,
-              child: const Text('Edit Overlay'),
-            ),
-          if (!_isProcessing && _landmarks != null)
-            TextButton(
-              onPressed: _isSaving ? null : _saveReference,
-              child: _isSaving
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Text('Save'),
-            ),
-        ],
-      ),
+      backgroundColor: AppColors.background,
       body: Stack(
         children: [
-          Container(color: Colors.black),
+          Container(color: AppColors.background),
 
-          // Photo + overlay scaled together (1.2×) so the figure fills the
-          // screen better without breaking overlay–photo alignment — both use
-          // BoxFit.contain and share the same aspect ratio.
           if (_imageSize != null)
             Positioned.fill(
               child: Transform.scale(
@@ -191,18 +169,47 @@ class _PoseConfirmationScreenState extends State<PoseConfirmationScreen> {
                 alignment: Alignment.center,
                 child: Stack(
                   children: [
+                    // Rounded frame around image
                     Positioned.fill(
-                      child: Image.file(
-                        File(widget.imagePath),
-                        fit: BoxFit.contain,
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: AppColors.border, width: 1),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppColors.aiGlow.withValues(alpha: 0.08),
+                                  blurRadius: 12,
+                                  spreadRadius: 2,
+                                ),
+                              ],
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(15),
+                              child: Image.file(
+                                File(widget.imagePath),
+                                fit: BoxFit.contain,
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                     if (!_isProcessing && _outlinePath != null)
                       Positioned.fill(
-                        child: Image.file(
-                          File(_outlinePath!),
-                          key: ValueKey(_outlinePath),
-                          fit: BoxFit.contain,
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(16),
+                            child: Image.file(
+                              File(_outlinePath!),
+                              key: ValueKey(_outlinePath),
+                              fit: BoxFit.contain,
+                            ),
+                          ),
                         ),
                       ),
                   ],
@@ -210,31 +217,131 @@ class _PoseConfirmationScreenState extends State<PoseConfirmationScreen> {
               ),
             ),
 
+          // ── Loading state ─────────────────────────────────────────────────
           if (_isProcessing)
             const Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  CircularProgressIndicator(),
+                  CircularProgressIndicator(color: AppColors.primaryText),
                   SizedBox(height: 16),
-                  Text('Finding your pose…',
-                      style: TextStyle(color: Colors.white)),
+                  Text(
+                    'Finding your pose…',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 15,
+                      color: AppColors.secondaryText,
+                    ),
+                  ),
                 ],
               ),
             ),
 
+          // ── No pose detected ──────────────────────────────────────────────
           if (!_isProcessing && _landmarks == null)
-            const Center(
+            Center(
               child: Padding(
-                padding: EdgeInsets.all(24.0),
+                padding: const EdgeInsets.all(24.0),
                 child: Text(
                   'Couldn\'t find a person in this photo.\n\nTry using a photo where someone is standing and visible from head to toe — the clearer the better! 🧍',
                   textAlign: TextAlign.center,
-                  style:
-                      TextStyle(color: Colors.white, fontSize: 18, height: 1.5),
+                  style: AppTextStyles.primaryBody.copyWith(
+                    color: AppColors.secondaryText,
+                    height: 1.6,
+                  ),
                 ),
               ),
             ),
+
+          // ── Floating top navigation pill ──────────────────────────────────
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: Container(
+                height: 50,
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(25),
+                  border: Border.all(color: AppColors.border, width: 1),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.3),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    // Back button
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        color: AppColors.primaryText,
+                        size: 18,
+                      ),
+                    ),
+                    // Title
+                    Expanded(
+                      child: Text(
+                        'Silhouette',
+                        style: AppTextStyles.pageTitle.copyWith(fontSize: 17),
+                      ),
+                    ),
+                    // Separator
+                    Container(
+                      width: 1,
+                      height: 18,
+                      color: AppColors.border,
+                      margin: const EdgeInsets.symmetric(horizontal: 8),
+                    ),
+                    // Edit Overlay button
+                    if (!_isProcessing && _outlinePath != null)
+                      TextButton(
+                        onPressed: _isSaving ? null : _openOverlayEditor,
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: Text(
+                          'Edit Overlay',
+                          style: AppTextStyles.buttonSecondary,
+                        ),
+                      ),
+                    // Save button
+                    if (!_isProcessing && _landmarks != null)
+                      TextButton(
+                        onPressed: _isSaving ? null : _saveReference,
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: _isSaving
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: AppColors.primaryText,
+                                ),
+                              )
+                            : Text(
+                                'Save',
+                                style: AppTextStyles.buttonSecondary.copyWith(
+                                  color: AppColors.primaryText,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                      ),
+                    const SizedBox(width: 8),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );

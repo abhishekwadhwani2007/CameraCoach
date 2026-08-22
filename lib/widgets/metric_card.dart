@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../core/theme.dart';
+import '../core/app_colors.dart';
+import '../core/app_text_styles.dart';
 
 class MetricCard extends StatelessWidget {
   final String title;
@@ -22,11 +23,12 @@ class MetricCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppTheme.surfaceColor,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border, width: 1),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
+            color: Colors.black.withValues(alpha: 0.2),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -39,15 +41,8 @@ class MetricCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: AppTheme.textSecondary,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              Icon(icon, color: AppTheme.primaryColor.withValues(alpha: 0.7), size: 16),
+              Text(title, style: AppTextStyles.cameraLabel),
+              Icon(icon, color: AppColors.yellow.withValues(alpha: 0.85), size: 16),
             ],
           ),
           Column(
@@ -55,10 +50,9 @@ class MetricCard extends StatelessWidget {
             children: [
               Text(
                 value,
-                style: const TextStyle(
+                style: AppTextStyles.cameraValue.copyWith(
                   fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.textPrimary,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
               const SizedBox(height: 2),
@@ -66,10 +60,11 @@ class MetricCard extends StatelessWidget {
                 status,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
+                style: AppTextStyles.caption.copyWith(
+                  fontStyle: FontStyle.normal,
+                  color: statusColor,
                   fontSize: 10,
                   fontWeight: FontWeight.w600,
-                  color: statusColor,
                 ),
               ),
             ],

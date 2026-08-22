@@ -1,6 +1,9 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import '../../../core/app_colors.dart';
+import '../../../core/app_text_styles.dart';
 import 'camera_ui_colors.dart';
 import 'manual_controls_panel.dart';
 
@@ -45,7 +48,7 @@ class BottomBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         color: Colors.transparent,
-        padding: EdgeInsets.only(bottom: bottomSafeAreaPadding + 8, top: 8),
+        padding: EdgeInsets.only(bottom: bottomSafeAreaPadding + 4, top: 0),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -57,7 +60,7 @@ class BottomBar extends StatelessWidget {
                 ev: ev,
                 mf: manualFocusValue,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
             ],
             ZoomSelector(
               currentZoom: zoom,
@@ -65,9 +68,9 @@ class BottomBar extends StatelessWidget {
               matchScore: matchScore,
               guidance: guidance,
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 6),
             ModeTabs(selected: selectedModeIndex, onSelect: onModeChanged),
-            const SizedBox(height: 16),
+            const SizedBox(height: 10),
 
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -75,20 +78,32 @@ class BottomBar extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
+                  // ── Gallery button ─────────────────────────────────────
                   Container(
-                    width: 54,
-                    height: 54,
+                    width: 50,
+                    height: 50,
                     decoration: BoxDecoration(
-                      color: Colors.white10,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: cameraBorderColor),
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: cameraBorderColor, width: 1),
                     ),
-                    child: const Icon(Icons.image_outlined,
-                        color: Colors.white38, size: 24),
+                    child: Center(
+                      child: SvgPicture.asset(
+                        'assets/icons/gallery_footer.svg',
+                        width: 24,
+                        height: 24,
+                        colorFilter: ColorFilter.mode(
+                          AppColors.secondaryText,
+                          BlendMode.srcIn,
+                        ),
+                      ),
+                    ),
                   ),
 
+                  // ── Shutter button ─────────────────────────────────────
                   ShutterBtn(onTap: onCapture, busy: capturing, matchScore: matchScore),
 
+                  // ── Flip camera button ─────────────────────────────────
                   AnimatedBuilder(
                     animation: flipAnim,
                     builder: (_, child) => Transform(
@@ -99,15 +114,18 @@ class BottomBar extends StatelessWidget {
                     child: GestureDetector(
                       onTap: onFlip,
                       child: Container(
-                        width: 54,
-                        height: 54,
+                        width: 50,
+                        height: 50,
                         decoration: BoxDecoration(
-                          color: Colors.white10,
+                          color: AppColors.surface,
                           shape: BoxShape.circle,
-                          border: Border.all(color: cameraBorderColor),
+                          border: Border.all(color: cameraBorderColor, width: 1),
                         ),
-                        child: const Icon(Icons.flip_camera_ios_outlined,
-                            color: cameraTextColor, size: 24),
+                        child: const Icon(
+                          Icons.flip_camera_ios_outlined,
+                          color: AppColors.secondaryText,
+                          size: 24,
+                        ),
                       ),
                     ),
                   ),
@@ -151,20 +169,20 @@ class ZoomSelector extends StatelessWidget {
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 150),
                 margin: const EdgeInsets.symmetric(horizontal: 4),
-                width: 30,
-                height: 30,
+                width: 34,
+                height: 34,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: active ? Colors.black87 : Colors.black45,
+                  color: active ? AppColors.lightSurface : AppColors.surface,
                   border: Border.all(
-                    color: active ? cameraAccentGold : Colors.white24,
+                    color: active ? cameraAccentGold : cameraBorderColor,
                     width: active ? 1.5 : 1.0,
                   ),
                   boxShadow: active
                       ? [
                           BoxShadow(
-                            color: cameraAccentGold.withValues(alpha: 0.15),
-                            blurRadius: 4,
+                            color: cameraAccentGold.withValues(alpha: 0.18),
+                            blurRadius: 6,
                             spreadRadius: 0.5,
                           )
                         ]
@@ -173,10 +191,9 @@ class ZoomSelector extends StatelessWidget {
                 alignment: Alignment.center,
                 child: Text(
                   '${z.toInt()}x',
-                  style: TextStyle(
-                    color: active ? cameraAccentGold : Colors.white70,
-                    fontSize: 10,
-                    fontWeight: active ? FontWeight.bold : FontWeight.w600,
+                  style: AppTextStyles.cameraLabel.copyWith(
+                    color: active ? cameraAccentGold : AppColors.tertiaryText,
+                    fontWeight: active ? FontWeight.w700 : FontWeight.w500,
                   ),
                 ),
               ),
@@ -188,11 +205,7 @@ class ZoomSelector extends StatelessWidget {
           child: IgnorePointer(
             child: Text(
               'Match: ${matchScore.toInt()}%',
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-              ),
+              style: AppTextStyles.cameraLabel,
             ),
           ),
         ),
@@ -207,11 +220,7 @@ class ZoomSelector extends StatelessWidget {
                   textAlign: TextAlign.right,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white70,
-                  ),
+                  style: AppTextStyles.secondaryBody,
                 ),
               ),
             ),
@@ -246,11 +255,9 @@ class ModeTabs extends StatelessWidget {
                 children: [
                   Text(
                     _modes[i],
-                    style: TextStyle(
-                      color: on ? cameraAccentGold : Colors.white38,
-                      fontSize: 12,
-                      fontWeight: on ? FontWeight.w800 : FontWeight.w400,
-                      letterSpacing: 1.4,
+                    style: AppTextStyles.modeTab.copyWith(
+                      color: on ? cameraAccentGold : AppColors.tertiaryText,
+                      fontWeight: on ? FontWeight.w700 : FontWeight.w500,
                     ),
                   ),
                   const SizedBox(height: 5),
@@ -323,31 +330,52 @@ class _ShutterBtnState extends State<ShutterBtn>
         child: ScaleTransition(
           scale: _pressScale,
           child: SizedBox(
-            width: 84,
-            height: 84,
+            width: 76,
+            height: 76,
             child: Stack(
               alignment: Alignment.center,
               children: [
+                // Outer silver ring
                 Container(
-                  width: 84,
-                  height: 84,
+                  width: 76,
+                  height: 76,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white60, width: 2.5),
+                    border: Border.all(
+                      color: AppColors.silverMid,
+                      width: 2.5,
+                    ),
                   ),
                 ),
+                // Inner silver gradient fill
                 Container(
-                  width: 68,
-                  height: 68,
+                  width: 62,
+                  height: 62,
                   decoration: const BoxDecoration(
                     shape: BoxShape.circle,
-                    color: Colors.white,
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        AppColors.silverTop,
+                        AppColors.silverMid,
+                        AppColors.silverBot,
+                      ],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.silverMid,
+                        blurRadius: 10,
+                        spreadRadius: 0,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
                   ),
                   child: widget.busy
                       ? const Padding(
                           padding: EdgeInsets.all(18),
                           child: CircularProgressIndicator(
-                              color: Colors.black87, strokeWidth: 2),
+                              color: AppColors.background, strokeWidth: 2),
                         )
                       : null,
                 ),

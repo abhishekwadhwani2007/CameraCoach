@@ -5,6 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/overlay_mask.dart';
 import '../../services/local_storage_service.dart';
 import '../../utils/logger.dart';
+import '../../core/app_colors.dart';
+import '../../core/app_text_styles.dart';
 import 'mask_toolbar.dart';
 
 enum OverlayEditMode { brush, eraser }
@@ -23,12 +25,8 @@ class OverlayStroke {
   });
 }
 
-/// Lets the user manually correct the AI-generated pose overlay before saving.
-///
-/// Displays the model-generated overlay directly on top of the reference photo.
-/// - Brush mode adds white outline strokes.
-/// - Eraser mode uses BlendMode.clear to erase the white overlay back to the
-///   photo underneath (no black lines!).
+/// Screen for manually correcting the AI-generated pose overlay before saving.
+/// Brush mode adds white strokes; eraser mode uses [BlendMode.clear] to remove them.
 class EditableOverlayScreen extends StatefulWidget {
   final File imageFile;
   final File aiMaskFile;
@@ -102,18 +100,18 @@ class _EditableOverlayScreenState extends State<EditableOverlayScreen> {
       showDialog<void>(
         context: context,
         builder: (_) => AlertDialog(
-          backgroundColor: const Color(0xFF1E1E1E),
+          backgroundColor: AppColors.surface,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text(
+          title: Text(
             'Editing the overlay',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+            style: AppTextStyles.pageTitle.copyWith(fontSize: 17),
           ),
-          content: const Text(
+          content: Text(
             'The AI overlay is displayed over your photo.\n\n'
             '• Use Brush to add missing outline parts.\n'
             '• Use Eraser to wipe away unwanted outline areas.',
-            style: TextStyle(color: Colors.white70, height: 1.5),
+            style: AppTextStyles.secondaryBody.copyWith(height: 1.5),
           ),
           actions: [
             TextButton(
@@ -161,16 +159,16 @@ class _EditableOverlayScreenState extends State<EditableOverlayScreen> {
     showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E1E),
+        backgroundColor: AppColors.surface,
         shape:
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text(
+        title: Text(
           'Reset overlay edits?',
-          style: TextStyle(color: Colors.white),
+          style: AppTextStyles.pageTitle.copyWith(fontSize: 17),
         ),
-        content: const Text(
+        content: Text(
           'All your edits will be discarded.',
-          style: TextStyle(color: Colors.white70),
+          style: AppTextStyles.secondaryBody,
         ),
         actions: [
           TextButton(
@@ -179,9 +177,11 @@ class _EditableOverlayScreenState extends State<EditableOverlayScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text(
+            child: Text(
               'Reset',
-              style: TextStyle(color: Colors.redAccent),
+              style: AppTextStyles.buttonSecondary.copyWith(
+                color: AppColors.error,
+              ),
             ),
           ),
         ],
@@ -342,126 +342,168 @@ class _EditableOverlayScreenState extends State<EditableOverlayScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        title: const Text(
-          'Edit Overlay',
-          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w500),
-        ),
-        actions: [
-          TextButton(
-            onPressed: _isSaving
-                ? null
-                : () => _popWithResult(
-                      OverlayMask(
-                        maskFile: widget.aiMaskFile,
-                        aiMaskPath: widget.aiMaskFile.path,
-                        userEdited: false,
+      backgroundColor: AppColors.background,
+      body: Stack(
+        children: [
+          // ── Canvas body ─────────────────────────────────────────────────
+          _isLoading || _aiMaskUiImage == null || _photoUiImage == null
+              ? const Center(
+                  child: CircularProgressIndicator(color: AppColors.primaryText),
+                )
+              : Column(
+                  children: [
+                    // Top safe area spacer so canvas doesn't hide under pill nav
+                    const SizedBox(height: 70),
+                    Expanded(
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final imgW = _photoUiImage!.width.toDouble();
+                          final imgH = _photoUiImage!.height.toDouble();
+                          final aspect = imgW / imgH;
+
+                          final maxW = constraints.maxWidth;
+                          final maxH = constraints.maxHeight;
+
+                          double canvasW, canvasH;
+                          if (aspect > (maxW / maxH)) {
+                            canvasW = maxW;
+                            canvasH = maxW / aspect;
+                          } else {
+                            canvasH = maxH;
+                            canvasW = maxH * aspect;
+                          }
+
+                          _canvasSize = Size(canvasW, canvasH);
+
+                          OverlayStroke? activeStroke;
+                          if (_currentPoints.isNotEmpty) {
+                            activeStroke = OverlayStroke(
+                              points: List.from(_currentPoints),
+                              path: Path.from(_currentPath),
+                              brushSize: _brushSize,
+                              mode: _activeMode,
+                            );
+                          }
+
+                          return Center(
+                            child: SizedBox(
+                              width: canvasW,
+                              height: canvasH,
+                              child: Stack(
+                                children: [
+                                  // 1. Photo Background (Bottom Layer)
+                                  Positioned.fill(
+                                    child: RawImage(
+                                      image: _photoUiImage,
+                                      fit: BoxFit.fill,
+                                    ),
+                                  ),
+                                  // 2. Interactive Overlay (Top Layer: AI Mask + Brush/Eraser)
+                                  Positioned.fill(
+                                    child: GestureDetector(
+                                      onPanStart: _onPanStart,
+                                      onPanUpdate: _onPanUpdate,
+                                      onPanEnd: _onPanEnd,
+                                      behavior: HitTestBehavior.opaque,
+                                      child: CustomPaint(
+                                        size: Size(canvasW, canvasH),
+                                        painter: OverlayCanvasPainter(
+                                          aiMaskImage: _aiMaskUiImage!,
+                                          strokes: _strokes,
+                                          currentStroke: activeStroke,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  if (_isSaving)
+                                    const Positioned.fill(
+                                      child: ColoredBox(
+                                        color: Colors.black54,
+                                        child: Center(
+                                          child: CircularProgressIndicator(),
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
                       ),
                     ),
-            child: const Text(
-              'Skip',
-              style: TextStyle(color: Colors.white60),
+                    MaskToolbar(
+                      onModeChanged: _onModeChanged,
+                      onBrushSizeChanged: _onBrushSizeChanged,
+                      onUndo: _onUndo,
+                      onRedo: _onRedo,
+                      onReset: _onReset,
+                      onDone: _onDone,
+                    ),
+                  ],
+                ),
+
+          // ── Floating top navigation pill ─────────────────────────────────
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: Container(
+                height: 50,
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(25),
+                  border: Border.all(color: AppColors.border, width: 1),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.35),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        color: AppColors.primaryText,
+                        size: 18,
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        'Edit Overlay',
+                        style: AppTextStyles.pageTitle.copyWith(fontSize: 17),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: _isSaving
+                          ? null
+                          : () => _popWithResult(
+                                OverlayMask(
+                                  maskFile: widget.aiMaskFile,
+                                  aiMaskPath: widget.aiMaskFile.path,
+                                  userEdited: false,
+                                ),
+                              ),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: Text(
+                        'Skip',
+                        style: AppTextStyles.buttonSecondary,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                  ],
+                ),
+              ),
             ),
           ),
         ],
       ),
-      body: _isLoading || _aiMaskUiImage == null || _photoUiImage == null
-          ? const Center(
-              child: CircularProgressIndicator(color: Colors.white),
-            )
-          : Column(
-              children: [
-                Expanded(
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      final imgW = _photoUiImage!.width.toDouble();
-                      final imgH = _photoUiImage!.height.toDouble();
-                      final aspect = imgW / imgH;
-
-                      final maxW = constraints.maxWidth;
-                      final maxH = constraints.maxHeight;
-
-                      double canvasW, canvasH;
-                      if (aspect > (maxW / maxH)) {
-                        canvasW = maxW;
-                        canvasH = maxW / aspect;
-                      } else {
-                        canvasH = maxH;
-                        canvasW = maxH * aspect;
-                      }
-
-                      _canvasSize = Size(canvasW, canvasH);
-
-                      OverlayStroke? activeStroke;
-                      if (_currentPoints.isNotEmpty) {
-                        activeStroke = OverlayStroke(
-                          points: List.from(_currentPoints),
-                          path: Path.from(_currentPath),
-                          brushSize: _brushSize,
-                          mode: _activeMode,
-                        );
-                      }
-
-                      return Center(
-                        child: SizedBox(
-                          width: canvasW,
-                          height: canvasH,
-                          child: Stack(
-                            children: [
-                              // 1. Photo Background (Bottom Layer)
-                              Positioned.fill(
-                                child: RawImage(
-                                  image: _photoUiImage,
-                                  fit: BoxFit.fill,
-                                ),
-                              ),
-                              // 2. Interactive Overlay (Top Layer: AI Mask + Brush/Eraser)
-                              Positioned.fill(
-                                child: GestureDetector(
-                                  onPanStart: _onPanStart,
-                                  onPanUpdate: _onPanUpdate,
-                                  onPanEnd: _onPanEnd,
-                                  behavior: HitTestBehavior.opaque,
-                                  child: CustomPaint(
-                                    size: Size(canvasW, canvasH),
-                                    painter: OverlayCanvasPainter(
-                                      aiMaskImage: _aiMaskUiImage!,
-                                      strokes: _strokes,
-                                      currentStroke: activeStroke,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              if (_isSaving)
-                                const Positioned.fill(
-                                  child: ColoredBox(
-                                    color: Colors.black54,
-                                    child: Center(
-                                      child: CircularProgressIndicator(),
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                MaskToolbar(
-                  onModeChanged: _onModeChanged,
-                  onBrushSizeChanged: _onBrushSizeChanged,
-                  onUndo: _onUndo,
-                  onRedo: _onRedo,
-                  onReset: _onReset,
-                  onDone: _onDone,
-                ),
-              ],
-            ),
     );
   }
 }

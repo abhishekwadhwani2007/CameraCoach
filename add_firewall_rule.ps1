@@ -16,6 +16,6 @@ netsh advfirewall firewall add rule `
     description="Allows phone to reach the PoseCoach FastAPI backend"
 
 Write-Host ""
-Write-Host "✅ Firewall rule added. Your phone can now reach http://10.245.166.17:8000" -ForegroundColor Green
+Write-Host "✅ Firewall rule added. Your phone can now reach http://YOUR_PC_IP:8000" -ForegroundColor Green
 Write-Host ""
 Read-Host "Press Enter to close"

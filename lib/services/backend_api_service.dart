@@ -5,21 +5,18 @@ import '../services/local_storage_service.dart';
 import '../utils/logger.dart';
 
 /// Communicates with the Python overlay-generation backend.
-///
-/// BASE URL is injected at build time via --dart-define so no IP/URL ever
-/// lives in source code or version control. Example:
-///   flutter run --dart-define=BACKEND_URL=http://192.168.1.10:8000
+/// The base URL is injected at build time via --dart-define, e.g.:
+///   flutter run --dart-define=BACKEND_URL=http://YOUR_PC_IP:8000
 class BackendApiService {
   static const String _baseUrl = String.fromEnvironment(
     'BACKEND_URL',
     defaultValue: '',
   );
 
-  /// 10 MB client-side guard before any bytes leave the device.
-  static const int _maxFileSizeBytes = 10 * 1024 * 1024;
+  // Client-side file size guard — rejects oversized uploads before any bytes are sent.
+  static const int _maxFileSizeBytes = 10 * 1024 * 1024; // 10 MB
 
-  /// 90-second wall-clock limit — GrabCut on CPU needs ~15-25 s on top of
-  /// upload time, so 30 s was too tight. 90 s gives a safe margin.
+  // GrabCut on CPU takes ~15–25 s; 90 s gives enough headroom for upload + processing.
   static const Duration _requestTimeout = Duration(seconds: 90);
 
   static Future<String?> generateOverlay(String imagePath) async {

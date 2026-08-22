@@ -42,6 +42,9 @@ dependencies:
   # undo-redo stack, and direct PNG mask export.
   flutter_mask_painter: ^1.0.1
 
+  # SVG rendering for custom CameraCoach icons
+  flutter_svg: ^2.0.10+1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -49,6 +52,23 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  # ── Locally-bundled Inter font (4 weights) ─────────────────────────────────
+  # Files are in assets/fonts/. No network dependency — resolves offline.
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Regular.ttf
+        - asset: assets/fonts/Inter-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Inter-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Inter-Bold.ttf
+          weight: 700
+
   assets:
     - assets/models/
     - assets/images/
+    - assets/fonts/
+    - assets/icons/
+

@@ -3,7 +3,8 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/constants.dart';
-import '../../core/theme.dart';
+import '../../core/app_colors.dart';
+import '../../core/app_text_styles.dart';
 import '../home/home_screen.dart';
 import '../../widgets/permission_tile.dart';
 
@@ -101,6 +102,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: Column(
           children: [
@@ -135,8 +137,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   right: index < AppConstants.totalOnboardingPages - 1 ? 8 : 0),
               decoration: BoxDecoration(
                 color: index <= _currentPage
-                    ? AppTheme.primaryColor
-                    : Colors.grey.shade300,
+                    ? AppColors.primaryText
+                    : AppColors.border,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -153,15 +155,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           const Icon(Icons.camera_alt_rounded,
-              size: 100, color: AppTheme.primaryColor),
+              size: 100, color: AppColors.primaryText),
           const SizedBox(height: 32),
-          Text('Welcome to CameraCoach',
-              style: Theme.of(context).textTheme.headlineLarge,
-              textAlign: TextAlign.center),
+          Text(
+            'Welcome to CameraCoach',
+            style: AppTextStyles.mainTitle,
+            textAlign: TextAlign.center,
+          ),
           const SizedBox(height: 16),
           Text(
             'Your personal pose guide — match any reference photo in real time and let the app take the shot when you\'ve nailed it.',
-            style: Theme.of(context).textTheme.bodyLarge,
+            style: AppTextStyles.primaryBody.copyWith(color: AppColors.secondaryText),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 48),
@@ -202,8 +206,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('How It Works',
-              style: Theme.of(context).textTheme.headlineLarge),
+          Text('How It Works', style: AppTextStyles.mainTitle),
           const SizedBox(height: 32),
           ...steps.map((step) => _buildStepRow(step.$2, step.$3, step.$4)),
           const SizedBox(height: 40),
@@ -225,25 +228,28 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withValues(alpha: 0.1),
+              color: AppColors.lightSurface,
               borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.border, width: 1),
             ),
-            child: Icon(icon, color: AppTheme.primaryColor, size: 28),
+            child: Icon(icon, color: AppColors.primaryText, size: 28),
           ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 16,
-                        color: AppTheme.textPrimary)),
+                Text(
+                  title,
+                  style: AppTextStyles.primaryBody.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
                 const SizedBox(height: 4),
-                Text(subtitle,
-                    style: const TextStyle(
-                        color: AppTheme.textSecondary, fontSize: 14)),
+                Text(
+                  subtitle,
+                  style: AppTextStyles.secondaryBody,
+                ),
               ],
             ),
           ),
@@ -259,12 +265,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 16),
-          Text('Just a couple of permissions',
-              style: Theme.of(context).textTheme.headlineLarge),
+          Text('Just a couple of permissions', style: AppTextStyles.mainTitle),
           const SizedBox(height: 8),
           Text(
             'CameraCoach needs camera access and photo library access to work. Everything runs on your device — nothing is sent anywhere.',
-            style: Theme.of(context).textTheme.bodyLarge,
+            style: AppTextStyles.primaryBody.copyWith(color: AppColors.secondaryText),
           ),
           const SizedBox(height: 32),
           PermissionTile(
@@ -297,11 +302,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               child: const Text('Grant All Permissions'),
             ),
             const SizedBox(height: 12),
-            TextButton(
-              onPressed: _completeOnboarding,
-              child: Text(
-                'Skip for now — I\'ll grant these later',
-                style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+            Center(
+              child: TextButton(
+                onPressed: _completeOnboarding,
+                child: Text(
+                  'Skip for now — I\'ll grant these later',
+                  style: AppTextStyles.buttonSecondary,
+                ),
               ),
             ),
           ] else ...[

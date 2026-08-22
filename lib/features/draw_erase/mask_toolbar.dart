@@ -1,12 +1,13 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import '../../core/app_colors.dart';
+import '../../core/app_text_styles.dart';
 
 enum DrawMode { brush, eraser }
 
-/// Floating toolbar at the bottom of the overlay editor.
-///
-/// Sits *outside* the image area so it never covers what the user is editing.
-/// Uses a blur + semi-transparent background to match the app's glass style.
+/// Toolbar for the overlay editor. Sits below the canvas so it never
+/// occludes the editing area. Uses a blur backdrop for the glass effect.
 class MaskToolbar extends StatefulWidget {
   final DrawMode initialMode;
   final double initialBrushSize;
@@ -62,21 +63,21 @@ class _MaskToolbarState extends State<MaskToolbar> {
         child: Container(
           padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + bottomPadding),
           decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.55),
-            border: const Border(
-              top: BorderSide(color: Colors.white12, width: 0.5),
+            color: AppColors.surface.withValues(alpha: 0.9),
+            border: Border(
+              top: BorderSide(color: AppColors.border, width: 0.5),
             ),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Drag handle — gives the user a visual affordance
+              // Drag handle — visual affordance
               Container(
                 width: 36,
                 height: 4,
                 margin: const EdgeInsets.only(bottom: 12),
                 decoration: BoxDecoration(
-                  color: Colors.white24,
+                  color: AppColors.disabledText,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -85,37 +86,41 @@ class _MaskToolbarState extends State<MaskToolbar> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
+                  // Brush — custom SVG
                   _ToolButton(
-                    icon: Icons.brush,
+                    svgAsset: 'assets/icons/brush.svg',
                     label: 'Brush',
                     isActive: _mode == DrawMode.brush,
                     onTap: () => _switchMode(DrawMode.brush),
                   ),
+                  // Erase — custom SVG
                   _ToolButton(
-                    icon: Icons.auto_fix_normal,
+                    svgAsset: 'assets/icons/erase.svg',
                     label: 'Erase',
                     isActive: _mode == DrawMode.eraser,
                     onTap: () => _switchMode(DrawMode.eraser),
                   ),
+                  // Undo, Redo, Reset — Material icons (match perfectly)
                   _ToolButton(
-                    icon: Icons.undo,
+                    icon: Icons.undo_rounded,
                     label: 'Undo',
                     onTap: widget.onUndo,
                   ),
                   _ToolButton(
-                    icon: Icons.redo,
+                    icon: Icons.redo_rounded,
                     label: 'Redo',
                     onTap: widget.onRedo,
                   ),
                   _ToolButton(
-                    icon: Icons.refresh,
+                    icon: Icons.refresh_rounded,
                     label: 'Reset',
                     onTap: widget.onReset,
                   ),
+                  // Done — green confirmation
                   _ToolButton(
-                    icon: Icons.check_circle_outline,
+                    icon: Icons.check_circle_rounded,
                     label: 'Done',
-                    activeColor: const Color(0xFF34A853), // green = confirm
+                    activeColor: AppColors.green,
                     isActive: true,
                     onTap: widget.onDone,
                   ),
@@ -124,27 +129,27 @@ class _MaskToolbarState extends State<MaskToolbar> {
 
               const SizedBox(height: 12),
 
-              // Brush size row — only relevant when in brush or erase mode
+              // Brush size row
               Row(
                 children: [
-                  const Icon(Icons.circle, size: 8, color: Colors.white54),
+                  const Icon(Icons.circle, size: 8, color: AppColors.secondaryText),
                   Expanded(
                     child: Slider(
                       value: _brushSize,
                       min: 4,
                       max: 32,
                       divisions: 14,
-                      activeColor: Colors.white70,
-                      inactiveColor: Colors.white24,
+                      activeColor: AppColors.silverMid,
+                      inactiveColor: AppColors.border,
                       onChanged: (v) {
                         setState(() => _brushSize = v);
                         widget.onBrushSizeChanged(v);
                       },
                     ),
                   ),
-                  const Icon(Icons.circle, size: 18, color: Colors.white54),
+                  const Icon(Icons.circle, size: 18, color: AppColors.secondaryText),
 
-                  // Live preview of the current brush size
+                  // Live brush size preview dot
                   Padding(
                     padding: const EdgeInsets.only(left: 8),
                     child: AnimatedContainer(
@@ -152,7 +157,7 @@ class _MaskToolbarState extends State<MaskToolbar> {
                       width: _brushSize,
                       height: _brushSize,
                       decoration: const BoxDecoration(
-                        color: Colors.white54,
+                        color: AppColors.secondaryText,
                         shape: BoxShape.circle,
                       ),
                     ),
@@ -168,20 +173,24 @@ class _MaskToolbarState extends State<MaskToolbar> {
 }
 
 /// Single icon button in the toolbar.
+/// Accepts either [icon] (Material) or [svgAsset] (custom SVG path).
 class _ToolButton extends StatefulWidget {
-  final IconData icon;
+  final IconData? icon;
+  final String? svgAsset;
   final String label;
   final bool isActive;
   final Color activeColor;
   final VoidCallback onTap;
 
   const _ToolButton({
-    required this.icon,
+    this.icon,
+    this.svgAsset,
     required this.label,
     required this.onTap,
     this.isActive = false,
-    this.activeColor = Colors.white,
-  });
+    this.activeColor = AppColors.primaryText,
+  }) : assert(icon != null || svgAsset != null,
+            '_ToolButton requires either icon or svgAsset');
 
   @override
   State<_ToolButton> createState() => _ToolButtonState();
@@ -219,7 +228,7 @@ class _ToolButtonState extends State<_ToolButton>
 
   @override
   Widget build(BuildContext context) {
-    final color = widget.isActive ? widget.activeColor : Colors.white38;
+    final color = widget.isActive ? widget.activeColor : AppColors.tertiaryText;
     return GestureDetector(
       onTap: _onTap,
       child: ScaleTransition(
@@ -227,13 +236,21 @@ class _ToolButtonState extends State<_ToolButton>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(widget.icon, color: color, size: 26),
+            if (widget.svgAsset != null)
+              SvgPicture.asset(
+                widget.svgAsset!,
+                width: 26,
+                height: 26,
+                colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
+              )
+            else
+              Icon(widget.icon, color: color, size: 26),
             const SizedBox(height: 4),
             Text(
               widget.label,
-              style: TextStyle(
+              style: AppTextStyles.caption.copyWith(
                 color: color,
-                fontSize: 10,
+                fontStyle: FontStyle.normal,
                 fontWeight: widget.isActive ? FontWeight.w600 : FontWeight.w400,
               ),
             ),

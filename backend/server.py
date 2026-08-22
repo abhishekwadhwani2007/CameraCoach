@@ -14,8 +14,8 @@ from slowapi.errors import RateLimitExceeded
 from outline import generate_transparent_overlay
 
 
-# Reconfigure before any logging so UTF-8 emoji / non-ASCII chars don't crash
-# Windows terminals or cloud log collectors.
+# Reconfigure stdout/stderr before any logging to avoid UTF-8 crashes on
+# Windows terminals and cloud log collectors.
 sys.stdout.reconfigure(encoding="utf-8")
 sys.stderr.reconfigure(encoding="utf-8")
 
@@ -32,12 +32,15 @@ app = FastAPI(title="PoseCoach Overlay API")
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# CORS is open because the app can run on any device IP. Tighten to specific
-# origins if you ever expose this publicly beyond Hugging Face Spaces.
+# CORS is open to support any device IP in a local/LAN setup.
+# Restrict allow_origins to specific origins if deploying publicly.
+# NOTE: allow_credentials=True is a browser spec violation with a wildcard origin
+# and is rejected by browsers. Keep False for wildcard; set True only alongside
+# a specific origin allowlist in a production deployment.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -82,9 +85,8 @@ async def generate_overlay(
     """
     logger.info("Incoming overlay request")
 
-    # Flutter's multipart encoder sometimes sends "application/octet-stream"
-    # even for valid JPEGs. We accept it — just log a note so we have a trail
-    # if something breaks.
+    # Flutter's multipart encoder may send "application/octet-stream" for valid
+    # images. Accept it and log a warning for traceability.
     if (
         file.content_type not in _ALLOWED_MIME
         and file.content_type not in {"application/octet-stream", "application/x-www-form-urlencoded"}
@@ -94,6 +96,7 @@ async def generate_overlay(
     raw_suffix = Path(file.filename or "upload.jpg").suffix.lower()
     safe_input_suffix = raw_suffix if raw_suffix in _ALLOWED_SUFFIXES else ".jpg"
 
+    # Read in 1 MB chunks and reject early if the upload exceeds the size limit.
     file_contents = bytearray()
     try:
         while True:
@@ -119,9 +122,8 @@ async def generate_overlay(
     input_path = None
     output_path = None
     try:
-        # Close the handles immediately after writing. On Windows, keeping them
-        # open while OpenCV or TFLite tries to read the same path causes silent
-        # failures because the OS locks the file.
+        # Close file handles immediately after writing — on Windows, open handles
+        # on the same path cause silent failures with OpenCV / TFLite.
         temp_in = NamedTemporaryFile(delete=False, suffix=safe_input_suffix)
         input_path = temp_in.name
         try:
@@ -174,28 +176,52 @@ async def save_mask_correction(
     attempt. These triplets are our training data for improving segmentation
     quality over time. Files are grouped by device_id for easy tracing.
     """
+    import re
+
+    # Sanitize device_id — only allow word chars and hyphens to prevent path
+    # traversal attacks (e.g. a device_id of "../../etc" escaping corrections/).
+    safe_device_id = re.sub(r"[^\w\-]", "_", device_id)[:64]
     logger.info(
         "Mask correction upload — device=%s confidence=%s time=%s",
-        device_id, confidence, timestamp,
+        safe_device_id, confidence, timestamp,
     )
 
-    out_dir = Path("data/corrections") / device_id
+    out_dir = Path("data/corrections") / safe_device_id
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    # Colons and dots in ISO timestamps aren't safe as filename characters
-    # on all filesystems, so swap them out before using the timestamp as a prefix.
+    # ISO timestamps contain colons and dots which are unsafe in filenames on some filesystems.
     ts_clean = timestamp.replace(":", "-").replace(".", "-")
 
     orig_path = out_dir / f"{ts_clean}_original.jpg"
     ai_path   = out_dir / f"{ts_clean}_ai_mask.png"
     corr_path = out_dir / f"{ts_clean}_corrected_mask.png"
 
+    _MAX_CORRECTION_BYTES = 10 * 1024 * 1024  # 10 MB per file — matches /generate_overlay limit
+
+    async def _read_bounded(upload: UploadFile) -> bytes:
+        """Read an upload in 1 MB chunks and reject early if it exceeds the size cap."""
+        data = bytearray()
+        try:
+            while True:
+                chunk = await upload.read(1024 * 1024)
+                if not chunk:
+                    break
+                data.extend(chunk)
+                if len(data) > _MAX_CORRECTION_BYTES:
+                    raise HTTPException(
+                        status_code=413,
+                        detail=f"Correction file too large. Maximum allowed size is 10 MB.",
+                    )
+        finally:
+            await upload.close()
+        return bytes(data)
+
     with open(orig_path, "wb") as f:
-        f.write(await original_image.read())
+        f.write(await _read_bounded(original_image))
     with open(ai_path, "wb") as f:
-        f.write(await ai_mask.read())
+        f.write(await _read_bounded(ai_mask))
     with open(corr_path, "wb") as f:
-        f.write(await corrected_mask.read())
+        f.write(await _read_bounded(corrected_mask))
 
     logger.info("Correction saved to %s", out_dir)
     return {"status": "ok", "message": "Mask correction saved successfully."}

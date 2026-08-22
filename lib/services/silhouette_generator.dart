@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
 import 'package:tflite_flutter/tflite_flutter.dart';
+import '../core/constants.dart';
 import '../services/local_storage_service.dart';
 import '../utils/logger.dart';
 
@@ -15,7 +16,7 @@ class SilhouetteGenerator {
     if (_interpreter != null) return;
     try {
       _interpreter = await Interpreter.fromAsset(
-        'assets/models/pose_landmark_full.tflite',
+        'assets/${AppConstants.poseModelPath}',
       );
     } catch (e) {
       AppLogger.error('Error loading silhouette model: $e');

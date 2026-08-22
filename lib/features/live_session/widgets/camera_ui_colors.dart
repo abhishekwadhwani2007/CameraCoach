@@ -1,6 +1,8 @@
+import '../../../core/app_colors.dart';
 import 'package:flutter/material.dart';
 
-/// Camera UI color palette used across viewfinder, controls, and overlays.
-const cameraAccentGold = Color(0xFFFFC600);
-const cameraBorderColor = Color(0xFF2A2A2A);
-const cameraTextColor = Colors.white;
+/// Color constants for the camera / live-session UI.
+/// All values map to [AppColors] tokens — update there to cascade everywhere.
+const Color cameraAccentGold  = AppColors.yellow;       // PRO tab, zoom active, grid icon
+const Color cameraBorderColor = AppColors.border;       // was Colors.white24
+const Color cameraTextColor   = AppColors.primaryText;  // was Colors.white

@@ -40,7 +40,7 @@ class CameraCoachApp extends StatelessWidget {
     return MaterialApp(
       title: 'CameraCoach',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
+      theme: AppTheme.darkTheme,
       home: showOnboarding ? const OnboardingScreen() : const HomeScreen(),
     );
   }

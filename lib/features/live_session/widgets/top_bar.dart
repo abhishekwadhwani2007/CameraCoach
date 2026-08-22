@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/app_colors.dart';
 import 'camera_ui_colors.dart';
 
 class TopBarControlButton extends StatelessWidget {
@@ -14,21 +15,31 @@ class TopBarControlButton extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) => DecoratedBox(
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.36),
-          shape: BoxShape.circle,
-          boxShadow: const [
-            BoxShadow(
-              color: Colors.black26,
-              blurRadius: 10,
-              offset: Offset(0, 3),
+  Widget build(BuildContext context) => SizedBox(
+        width: 44,
+        height: 44,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            shape: BoxShape.circle,
+            border: Border.all(color: AppColors.border, width: 1),
+            boxShadow: const [
+              BoxShadow(
+                color: Colors.black38,
+                blurRadius: 8,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
+          child: IconButton(
+            padding: EdgeInsets.zero,
+            icon: Icon(
+              icon,
+              color: active ? cameraAccentGold : cameraTextColor,
+              size: 20,
             ),
-          ],
-        ),
-        child: IconButton(
-          icon: Icon(icon, color: active ? cameraAccentGold : Colors.white, size: 22),
-          onPressed: onPressed,
+            onPressed: onPressed,
+          ),
         ),
       );
 }

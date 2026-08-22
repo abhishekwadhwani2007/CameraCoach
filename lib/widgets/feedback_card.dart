@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../core/theme.dart';
+import '../core/app_colors.dart';
+import '../core/app_text_styles.dart';
 
 /// Shows a single coaching tip or photo-quality note after a capture.
 /// The `critique` string uses a prefix (FAIL:, PRO:, LIMIT:, INFO:) to
@@ -24,20 +25,20 @@ class FeedbackCard extends StatelessWidget {
         .trim();
 
     IconData icon = Icons.info_outline_rounded;
-    Color color = AppTheme.textSecondary;
+    Color color = AppColors.secondaryText;
     if (isFail) {
       icon = Icons.cancel_outlined;
-      color = AppTheme.errorColor;
+      color = AppColors.error;
     } else if (isPro) {
       icon = Icons.stars_rounded;
-      color = AppTheme.successColor;
+      color = AppColors.success;
     }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppTheme.surfaceColor,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: color.withValues(alpha: 0.15),
@@ -52,9 +53,8 @@ class FeedbackCard extends StatelessWidget {
           Expanded(
             child: Text(
               cleanText,
-              style: const TextStyle(
+              style: AppTextStyles.primaryBody.copyWith(
                 fontSize: 14,
-                color: AppTheme.textPrimary,
                 height: 1.4,
               ),
             ),

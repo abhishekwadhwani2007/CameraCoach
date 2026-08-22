@@ -3,30 +3,20 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../utils/logger.dart';
 
-/// Sends corrected overlay masks to the backend so we can use them for
-/// model fine-tuning over time.
-///
-/// The upload is fire-and-forget — a failure is logged but never shown to
-/// the user, and it never blocks the save flow.
-///
-/// The endpoint URL is injected at build time via --dart-define so no IP/URL
-/// ever lives in source code. Example:
-///   flutter run --dart-define=BACKEND_URL=http://192.168.1.10:8000
+/// Sends user-corrected overlay masks to the backend for model fine-tuning.
+/// Fire-and-forget — failures are logged but never surfaced to the user.
+/// Base URL injected via --dart-define=BACKEND_URL=http://YOUR_PC_IP:8000
 class MaskUploadService {
   static const String _baseUrl = String.fromEnvironment(
     'BACKEND_URL',
     defaultValue: '',
   );
 
-  /// How long we wait for the upload before giving up. Long enough for a slow
-  /// connection but short enough that it never hangs the process.
+  // Upload timeout — generous enough for slow connections, tight enough not to hang.
   static const Duration _timeout = Duration(seconds: 30);
 
-  /// Upload the original image, the raw AI mask, and the user-corrected mask
-  /// as a single multipart POST.
-  ///
-  /// [deviceId] and [confidenceScore] are stored as metadata so the training
-  /// pipeline can weight samples by model confidence.
+  /// Uploads the original image, AI mask, and user-corrected mask as a multipart POST.
+  /// [deviceId] and [confidenceScore] are stored as metadata for the training pipeline.
   static Future<void> uploadCorrection({
     required File originalImage,
     required File aiMask,
