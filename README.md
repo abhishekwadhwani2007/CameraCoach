@@ -37,58 +37,55 @@ Building a backend pipeline that could reliably extract a clean silhouette from 
 ## 🗺️ App Flow
 
 ```mermaid
-flowchart LR
-    %% ── Launch ──────────────────────────────────────────────────────────────
-    START([🚀 Launch]) --> FIRST{First\nlaunch?}
-    FIRST -->|Yes| OB[🎉 Onboarding\n3-page walkthrough]
+flowchart TD
+    START([🚀 App Launch]) --> FIRST{First time?}
+    FIRST -->|Yes| OB[🎉 3-page Onboarding]
     FIRST -->|No| HOME
-    OB --> HOME[🏠 Home Screen]
+    OB --> HOME
 
-    %% ── Phase 1 · Reference Setup ───────────────────────────────────────────
-    HOME -->|Upload reference| PICK[📂 Pick Photo\nfrom Gallery]
+    HOME([🏠 Home Screen])
 
-    PICK --> API[🌐 Backend API\ngenerate_overlay]
-    API -->|Success| PREV[🖼️ Preview\nSilhouette]
-    API -->|Offline / failed| FALLBACK[📱 On-Device\nSilhouetteGenerator]
-    FALLBACK --> PREV
+    %% ─── Phase 1 · Reference Setup ───────────────────────────────────────────
+    subgraph SETUP ["📁 Phase 1 — Reference Setup"]
+        direction TB
+        PICK[📂 Pick Photo from Gallery]
+        PICK --> API[🌐 Backend · generate_overlay]
+        PICK --> FALL[📱 On-Device Fallback\nSilhouetteGenerator]
+        API -->|Success| PREV[🖼️ Preview Silhouette]
+        FALL -->|Backend offline| PREV
+        PREV --> HAPPY{Happy\nwith overlay?}
+        HAPPY -->|Draw corrections| MASK[✏️ Mask Editor\nbrush · erase · undo]
+        MASK --> UPLOAD[☁️ Upload correction\nfire-and-forget]
+        UPLOAD --> SAVE
+        HAPPY -->|Accept| SAVE[(💾 Save to Secure Storage)]
+    end
 
-    PREV --> EDIT{Happy with\noverlay?}
-    EDIT -->|Draw corrections| MASK[✏️ Mask Editor\nbrush · erase · undo]
-    MASK -->|Save| UPLOAD[☁️ Upload correction\nfire-and-forget]
-    UPLOAD --> SAVE
-    EDIT -->|Accept| SAVE[(💾 Save Reference\nto secure storage)]
+    %% ─── Phase 2 · Live Coaching ──────────────────────────────────────────────
+    subgraph COACH ["📷 Phase 2 — Live Coaching"]
+        direction TB
+        CAM[📷 Live Camera + Neon Overlay]
+        CAM --> DETECT[🧠 ML Kit Pose Detection\nevery 4th frame]
+        DETECT --> SCORE{Match ≥ 97%\nfor 5 frames?}
+        SCORE -->|No| HINT[💬 Show guidance hint]
+        HINT --> DETECT
+        SCORE -->|Yes| COUNT[⏳ 3-second cancelable countdown]
+        COUNT -->|Cancelled| DETECT
+        COUNT -->|Auto-fires| SHOT[📸 Photo Captured]
+    end
+
+    %% ─── Phase 3 · Review ─────────────────────────────────────────────────────
+    subgraph REVIEW ["🔍 Phase 3 — Review Shot"]
+        direction TB
+        RV[Capture Review Screen]
+        RV --> MET[📊 Exposure · Depth of Field\nDynamic Range · Color Temp]
+        MET --> BACK([🏠 Back to Home])
+    end
+
+    HOME -->|Upload reference| PICK
+    HOME -->|Start coaching| CAM
     SAVE --> HOME
-
-    %% ── Phase 2 · Live Coaching ─────────────────────────────────────────────
-    HOME -->|Start coaching| CAM[📷 Live Camera\n+ Neon Overlay]
-    CAM --> DETECT[🧠 ML Kit Pose\nevery 4th frame]
-    DETECT --> SCORE{Match\n≥ 97%?}
-    SCORE -->|No| HINT[💬 Guidance hint\non screen]
-    HINT --> DETECT
-    SCORE -->|Yes × 5 frames| COUNT[⏳ 3-second\ncancelable countdown]
-    COUNT -->|User cancels| DETECT
-    COUNT -->|Auto-fires| SHOT[📸 Photo captured]
-
-    %% ── Phase 3 · Review ────────────────────────────────────────────────────
-    SHOT --> REVIEW[🔍 Capture Review]
-    REVIEW --> METRICS[📊 Exposure · Depth\nDynamic Range · Color Temp]
-    METRICS --> DONE([🏠 Back to Home])
-    DONE --> HOME
-
-    %% ── Styles ──────────────────────────────────────────────────────────────
-    classDef phase fill:#1a1a2e,stroke:#7c3aed,color:#e2e8f0
-    classDef action fill:#0f172a,stroke:#3b82f6,color:#e2e8f0
-    classDef decision fill:#1e293b,stroke:#f59e0b,color:#fbbf24
-    classDef storage fill:#0f2027,stroke:#10b981,color:#6ee7b7
-    classDef endpoint fill:#1a1a2e,stroke:#6366f1,color:#a5b4fc
-    classDef fallback fill:#1c1917,stroke:#ef4444,color:#fca5a5
-
-    class START,DONE endpoint
-    class HOME,CAM,PICK,PREV,DETECT,SHOT,REVIEW,METRICS,MASK,COUNT,HINT,UPLOAD,OB action
-    class FIRST,EDIT,SCORE decision
-    class SAVE storage
-    class API phase
-    class FALLBACK fallback
+    SHOT --> RV
+    BACK --> HOME
 ```
 
 ---

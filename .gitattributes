@@ -1,0 +1,15 @@
+# -- GitHub Linguist overrides ------------------------------------------------
+# Flutter generates native platform code in android/, ios/, linux/, macos/,
+# web/, and windows/. None of it is hand-written — mark it as vendored so
+# GitHub only reports Dart and Python as the project languages.
+
+android/**        linguist-vendored=true
+ios/**            linguist-vendored=true
+linux/**          linguist-vendored=true
+macos/**          linguist-vendored=true
+web/**            linguist-vendored=true
+windows/**        linguist-vendored=true
+
+# Explicitly surface the two languages that matter
+*.dart            linguist-detectable=true
+*.py              linguist-detectable=true
