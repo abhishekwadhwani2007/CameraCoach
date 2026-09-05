@@ -71,7 +71,6 @@ class BottomBar extends StatelessWidget {
             const SizedBox(height: 6),
             ModeTabs(selected: selectedModeIndex, onSelect: onModeChanged),
             const SizedBox(height: 10),
-
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 28),
               child: Row(
@@ -92,7 +91,7 @@ class BottomBar extends StatelessWidget {
                         'assets/icons/gallery_footer.svg',
                         width: 24,
                         height: 24,
-                        colorFilter: ColorFilter.mode(
+                        colorFilter: const ColorFilter.mode(
                           AppColors.secondaryText,
                           BlendMode.srcIn,
                         ),
@@ -101,7 +100,10 @@ class BottomBar extends StatelessWidget {
                   ),
 
                   // ── Shutter button ─────────────────────────────────────
-                  ShutterBtn(onTap: onCapture, busy: capturing, matchScore: matchScore),
+                  ShutterBtn(
+                      onTap: onCapture,
+                      busy: capturing,
+                      matchScore: matchScore),
 
                   // ── Flip camera button ─────────────────────────────────
                   AnimatedBuilder(
@@ -119,7 +121,8 @@ class BottomBar extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: AppColors.surface,
                           shape: BoxShape.circle,
-                          border: Border.all(color: cameraBorderColor, width: 1),
+                          border:
+                              Border.all(color: cameraBorderColor, width: 1),
                         ),
                         child: const Icon(
                           Icons.flip_camera_ios_outlined,
@@ -318,7 +321,9 @@ class _ShutterBtnState extends State<ShutterBtn>
   }
 
   Future<void> _press() async {
-    if (widget.busy) return; // Ignore taps while a capture is already in flight.
+    if (widget.busy) {
+      return; // Ignore taps while a capture is already in flight.
+    }
     await _pressAnimController.reverse();
     await _pressAnimController.forward();
     widget.onTap();

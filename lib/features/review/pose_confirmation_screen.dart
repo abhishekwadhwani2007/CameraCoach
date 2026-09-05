@@ -40,7 +40,8 @@ class _PoseConfirmationScreenState extends State<PoseConfirmationScreen> {
   }
 
   Future<void> _processImage() async {
-    AppLogger.debug('PoseConfirmationScreen: received overlayPath: ${widget.overlayPath != null ? "present" : "null"}');
+    AppLogger.debug(
+        'PoseConfirmationScreen: received overlayPath: ${widget.overlayPath != null ? "present" : "null"}');
     try {
       final file = File(widget.imagePath);
       final decodedImage = await decodeImageFromList(await file.readAsBytes());
@@ -87,8 +88,9 @@ class _PoseConfirmationScreenState extends State<PoseConfirmationScreen> {
     try {
       final proSettingsJson =
           await PhotoQualityAnalyzer.analyzeJson(widget.imagePath);
-      
-      AppLogger.debug('PoseConfirmationScreen: saving with outlinePath: ${_outlinePath != null ? "present" : "null"}');
+
+      AppLogger.debug(
+          'PoseConfirmationScreen: saving with outlinePath: ${_outlinePath != null ? "present" : "null"}');
       await LocalStorageService.saveReference(
         originalImagePath: widget.imagePath,
         keypointsJson: jsonEncode(_landmarks),
@@ -109,7 +111,8 @@ class _PoseConfirmationScreenState extends State<PoseConfirmationScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Something went wrong saving that. Please try again.'),
+            content:
+                Text('Something went wrong saving that. Please try again.'),
           ),
         );
       }
@@ -161,7 +164,6 @@ class _PoseConfirmationScreenState extends State<PoseConfirmationScreen> {
       body: Stack(
         children: [
           Container(color: AppColors.background),
-
           if (_imageSize != null)
             Positioned.fill(
               child: Transform.scale(
@@ -169,7 +171,6 @@ class _PoseConfirmationScreenState extends State<PoseConfirmationScreen> {
                 alignment: Alignment.center,
                 child: Stack(
                   children: [
-                    // Rounded frame around image
                     Positioned.fill(
                       child: Padding(
                         padding: const EdgeInsets.all(16),
@@ -178,10 +179,12 @@ class _PoseConfirmationScreenState extends State<PoseConfirmationScreen> {
                           child: Container(
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: AppColors.border, width: 1),
+                              border:
+                                  Border.all(color: AppColors.border, width: 1),
                               boxShadow: [
                                 BoxShadow(
-                                  color: AppColors.aiGlow.withValues(alpha: 0.08),
+                                  color:
+                                      AppColors.aiGlow.withValues(alpha: 0.08),
                                   blurRadius: 12,
                                   spreadRadius: 2,
                                 ),
@@ -216,8 +219,6 @@ class _PoseConfirmationScreenState extends State<PoseConfirmationScreen> {
                 ),
               ),
             ),
-
-          // ── Loading state ─────────────────────────────────────────────────
           if (_isProcessing)
             const Center(
               child: Column(
@@ -236,8 +237,6 @@ class _PoseConfirmationScreenState extends State<PoseConfirmationScreen> {
                 ],
               ),
             ),
-
-          // ── No pose detected ──────────────────────────────────────────────
           if (!_isProcessing && _landmarks == null)
             Center(
               child: Padding(
@@ -252,8 +251,6 @@ class _PoseConfirmationScreenState extends State<PoseConfirmationScreen> {
                 ),
               ),
             ),
-
-          // ── Floating top navigation pill ──────────────────────────────────
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
@@ -273,7 +270,6 @@ class _PoseConfirmationScreenState extends State<PoseConfirmationScreen> {
                 ),
                 child: Row(
                   children: [
-                    // Back button
                     IconButton(
                       onPressed: () => Navigator.pop(context),
                       icon: const Icon(
@@ -282,21 +278,18 @@ class _PoseConfirmationScreenState extends State<PoseConfirmationScreen> {
                         size: 18,
                       ),
                     ),
-                    // Title
                     Expanded(
                       child: Text(
                         'Silhouette',
                         style: AppTextStyles.pageTitle.copyWith(fontSize: 17),
                       ),
                     ),
-                    // Separator
                     Container(
                       width: 1,
                       height: 18,
                       color: AppColors.border,
                       margin: const EdgeInsets.symmetric(horizontal: 8),
                     ),
-                    // Edit Overlay button
                     if (!_isProcessing && _outlinePath != null)
                       TextButton(
                         onPressed: _isSaving ? null : _openOverlayEditor,
@@ -305,12 +298,11 @@ class _PoseConfirmationScreenState extends State<PoseConfirmationScreen> {
                           minimumSize: Size.zero,
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         ),
-                        child: Text(
+                        child: const Text(
                           'Edit Overlay',
                           style: AppTextStyles.buttonSecondary,
                         ),
                       ),
-                    // Save button
                     if (!_isProcessing && _landmarks != null)
                       TextButton(
                         onPressed: _isSaving ? null : _saveReference,

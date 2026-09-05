@@ -38,7 +38,8 @@ class BackendApiService {
 
       final uri = Uri.parse('$_baseUrl/api/generate_overlay');
       final fileName = imagePath.split(RegExp(r'[/\\]')).last;
-      final ext = fileName.contains('.') ? fileName.split('.').last.toLowerCase() : '';
+      final ext =
+          fileName.contains('.') ? fileName.split('.').last.toLowerCase() : '';
       const validExts = {'jpg', 'jpeg', 'png', 'webp'};
       final safeFileName = validExts.contains(ext) ? fileName : 'upload.jpg';
 

@@ -55,9 +55,10 @@ class SilhouetteGenerator {
     }
 
     // Model outputs shape [1, 256, 256, 1].
-    final maskOut = List.generate(1, (_) =>
-      List.generate(ts, (_) =>
-        List.generate(ts, (_) => List.filled(1, 0.0))));
+    final maskOut = List.generate(
+        1,
+        (_) => List.generate(
+            ts, (_) => List.generate(ts, (_) => List.filled(1, 0.0))));
 
     try {
       _interpreter!.allocateTensors();
@@ -89,12 +90,14 @@ class SilhouetteGenerator {
 
     final dilated = _dilate(processed, 2);
 
-    var maskFloat = List.generate(ts, (y) => Float64List.fromList(
-      List.generate(ts, (x) => dilated[y][x] ? 1.0 : 0.0)
-    ));
+    var maskFloat = List.generate(
+        ts,
+        (y) => Float64List.fromList(
+            List.generate(ts, (x) => dilated[y][x] ? 1.0 : 0.0)));
     maskFloat = _blur(maskFloat, ts, ts, 4.0);
 
-    final smoothed = List.generate(ts, (y) => List.generate(ts, (x) => maskFloat[y][x] > 0.45));
+    final smoothed = List.generate(
+        ts, (y) => List.generate(ts, (x) => maskFloat[y][x] > 0.45));
 
     final edgeDilated = _dilate(smoothed, 2);
     final edgeEroded = _erode(smoothed, 2);
@@ -139,8 +142,7 @@ class SilhouetteGenerator {
         final y0 = sy.floor().clamp(0, ts - 2);
         final fx = sx - x0;
         final fy = sy - y0;
-        edgeUp[y][x] =
-            edges[y0][x0] * (1 - fx) * (1 - fy) +
+        edgeUp[y][x] = edges[y0][x0] * (1 - fx) * (1 - fy) +
             edges[y0][x0 + 1] * fx * (1 - fy) +
             edges[y0 + 1][x0] * (1 - fx) * fy +
             edges[y0 + 1][x0 + 1] * fx * fy;
@@ -149,15 +151,15 @@ class SilhouetteGenerator {
 
     // Three additive glow layers (outer spread → mid glow → inner core).
     const layers = [
-      (12.0, 0.12, 170, 235, 130),  // outer: warm green glow
-      ( 5.0, 0.45, 110, 230,  55),  // mid: brighter green
-      ( 1.5, 0.85, 205, 245, 185),  // inner: warm white core
+      (12.0, 0.12, 170, 235, 130), // outer: warm green glow
+      (5.0, 0.45, 110, 230, 55), // mid: brighter green
+      (1.5, 0.85, 205, 245, 185), // inner: warm white core
     ];
 
     final alpha = List.generate(ch, (_) => Float64List(cw));
-    final colR  = List.generate(ch, (_) => Float64List(cw));
-    final colG  = List.generate(ch, (_) => Float64List(cw));
-    final colB  = List.generate(ch, (_) => Float64List(cw));
+    final colR = List.generate(ch, (_) => Float64List(cw));
+    final colG = List.generate(ch, (_) => Float64List(cw));
+    final colB = List.generate(ch, (_) => Float64List(cw));
 
     for (final (rawR, intensity, r, g, b) in layers) {
       final sigma = max(0.8, rawR * ch / 1400.0);
@@ -193,7 +195,9 @@ class SilhouetteGenerator {
         final a = alpha[y][x];
         if (a < 0.004) continue;
         final inv = 1.0 / max(a, 1e-6);
-        canvas.setPixelRgba(x, y,
+        canvas.setPixelRgba(
+          x,
+          y,
           (colR[y][x] * inv * 255).clamp(0, 255).toInt(),
           (colG[y][x] * inv * 255).clamp(0, 255).toInt(),
           (colB[y][x] * inv * 255).clamp(0, 255).toInt(),
@@ -206,7 +210,8 @@ class SilhouetteGenerator {
   }
 
   /// 2-pass separable Gaussian blur.
-  static List<Float64List> _blur(List<Float64List> src, int w, int h, double sigma) {
+  static List<Float64List> _blur(
+      List<Float64List> src, int w, int h, double sigma) {
     final r = (sigma * 3).ceil();
     final ks = r * 2 + 1;
     final k = Float64List(ks);
@@ -246,14 +251,17 @@ class SilhouetteGenerator {
 
   /// Draw skeleton lines and joints onto the boolean mask.
   static void _augmentMaskWithSkeleton(
-    List<List<bool>> mask, Map<String, dynamic> lm,
-    int imgW, int imgH, int ts,
+    List<List<bool>> mask,
+    Map<String, dynamic> lm,
+    int imgW,
+    int imgH,
+    int ts,
   ) {
     double bodyScale = 100.0;
     final lSh = lm['leftShoulder'], rSh = lm['rightShoulder'];
     if (lSh != null && rSh != null) {
       final d = sqrt(pow((lSh['x'] as num) - (rSh['x'] as num), 2) +
-                     pow((lSh['y'] as num) - (rSh['y'] as num), 2));
+          pow((lSh['y'] as num) - (rSh['y'] as num), 2));
       if (d > 20) bodyScale = d.toDouble();
     }
 
@@ -279,7 +287,8 @@ class SilhouetteGenerator {
       final maxY = (max(pa.dy, pb.dy) + thick).clamp(0, ts - 1).toInt();
       for (int y = minY; y <= maxY; y++) {
         for (int x = minX; x <= maxX; x++) {
-          double t = lenSq > 0 ? ((x - pa.dx) * dx + (y - pa.dy) * dy) / lenSq : 0;
+          double t =
+              lenSq > 0 ? ((x - pa.dx) * dx + (y - pa.dy) * dy) / lenSq : 0;
           t = t.clamp(0.0, 1.0);
           final px = pa.dx + t * dx, py = pa.dy + t * dy;
           if ((x - px) * (x - px) + (y - py) * (y - py) <= thick * thick) {
@@ -322,10 +331,15 @@ class SilhouetteGenerator {
 
     // Key joints
     for (final (k, r) in [
-      ('nose', 0.15), ('leftEar', 0.12), ('rightEar', 0.12),
-      ('leftShoulder', 0.13), ('rightShoulder', 0.13),
-      ('leftWrist', 0.20), ('rightWrist', 0.20),
-      ('leftAnkle', 0.12), ('rightAnkle', 0.12),
+      ('nose', 0.15),
+      ('leftEar', 0.12),
+      ('rightEar', 0.12),
+      ('leftShoulder', 0.13),
+      ('rightShoulder', 0.13),
+      ('leftWrist', 0.20),
+      ('rightWrist', 0.20),
+      ('leftAnkle', 0.12),
+      ('rightAnkle', 0.12),
     ]) {
       circle(k, r);
     }

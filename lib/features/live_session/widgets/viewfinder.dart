@@ -54,9 +54,10 @@ class Viewfinder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final overlayFile = referenceOutlinePath == null || referenceOutlinePath!.isEmpty
-        ? null
-        : File(referenceOutlinePath!);
+    final overlayFile =
+        referenceOutlinePath == null || referenceOutlinePath!.isEmpty
+            ? null
+            : File(referenceOutlinePath!);
 
     return ClipRect(
       child: GestureDetector(
@@ -102,7 +103,7 @@ class Viewfinder extends StatelessWidget {
                 child: IgnorePointer(
                   child: overlayFile != null && overlayFile.existsSync()
                       ? Transform.scale(
-                          scale: 1.35,
+                          scale: 1.15,
                           alignment: Alignment.center,
                           child: Image.file(
                             overlayFile,
@@ -169,7 +170,8 @@ class Viewfinder extends StatelessWidget {
                   ),
                 ),
               ),
-            if (showFlash) Positioned.fill(child: Container(color: Colors.white)),
+            if (showFlash)
+              Positioned.fill(child: Container(color: Colors.white)),
           ],
         ),
       ),
@@ -340,8 +342,8 @@ class ZoomBadge extends StatelessWidget {
             decoration: BoxDecoration(
               color: Colors.black45,
               borderRadius: BorderRadius.circular(20),
-              border:
-                  Border.all(color: cameraAccentGold.withValues(alpha: 0.8), width: 1),
+              border: Border.all(
+                  color: cameraAccentGold.withValues(alpha: 0.8), width: 1),
             ),
             child: Text(
               '${zoom.toStringAsFixed(1)}×',

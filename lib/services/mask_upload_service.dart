@@ -25,7 +25,8 @@ class MaskUploadService {
     double confidenceScore = 0.0,
   }) async {
     if (_baseUrl.trim().isEmpty) {
-      AppLogger.debug('MaskUploadService: BACKEND_URL not set — skipping upload.');
+      AppLogger.debug(
+          'MaskUploadService: BACKEND_URL not set — skipping upload.');
       return;
     }
 

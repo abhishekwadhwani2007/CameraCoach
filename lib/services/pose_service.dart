@@ -80,6 +80,7 @@ class PoseService {
 
     return landmarks;
   }
+
   static void dispose() {
     _poseDetector?.close();
     _poseDetector = null;

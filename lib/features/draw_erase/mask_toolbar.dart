@@ -64,7 +64,7 @@ class _MaskToolbarState extends State<MaskToolbar> {
           padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + bottomPadding),
           decoration: BoxDecoration(
             color: AppColors.surface.withValues(alpha: 0.9),
-            border: Border(
+            border: const Border(
               top: BorderSide(color: AppColors.border, width: 0.5),
             ),
           ),
@@ -132,7 +132,8 @@ class _MaskToolbarState extends State<MaskToolbar> {
               // Brush size row
               Row(
                 children: [
-                  const Icon(Icons.circle, size: 8, color: AppColors.secondaryText),
+                  const Icon(Icons.circle,
+                      size: 8, color: AppColors.secondaryText),
                   Expanded(
                     child: Slider(
                       value: _brushSize,
@@ -147,7 +148,8 @@ class _MaskToolbarState extends State<MaskToolbar> {
                       },
                     ),
                   ),
-                  const Icon(Icons.circle, size: 18, color: AppColors.secondaryText),
+                  const Icon(Icons.circle,
+                      size: 18, color: AppColors.secondaryText),
 
                   // Live brush size preview dot
                   Padding(

@@ -44,71 +44,101 @@ class PoseComparisonService {
   static const List<_JointTriplet> _triplets = [
     _JointTriplet(
       name: 'Left elbow',
-      a: 'leftShoulder', b: 'leftElbow', c: 'leftWrist',
-      weight: 0.12, maxDevDeg: 45.0,
+      a: 'leftShoulder',
+      b: 'leftElbow',
+      c: 'leftWrist',
+      weight: 0.12,
+      maxDevDeg: 45.0,
       feedHigh: 'Bend your left elbow more',
       feedLow: 'Straighten your left arm',
     ),
     _JointTriplet(
       name: 'Right elbow',
-      a: 'rightShoulder', b: 'rightElbow', c: 'rightWrist',
-      weight: 0.12, maxDevDeg: 45.0,
+      a: 'rightShoulder',
+      b: 'rightElbow',
+      c: 'rightWrist',
+      weight: 0.12,
+      maxDevDeg: 45.0,
       feedHigh: 'Bend your right elbow more',
       feedLow: 'Straighten your right arm',
     ),
     _JointTriplet(
       name: 'Left shoulder',
-      a: 'leftElbow', b: 'leftShoulder', c: 'leftHip',
-      weight: 0.10, maxDevDeg: 40.0,
+      a: 'leftElbow',
+      b: 'leftShoulder',
+      c: 'leftHip',
+      weight: 0.10,
+      maxDevDeg: 40.0,
       feedHigh: 'Lower your left arm',
       feedLow: 'Raise your left arm',
     ),
     _JointTriplet(
       name: 'Right shoulder',
-      a: 'rightElbow', b: 'rightShoulder', c: 'rightHip',
-      weight: 0.10, maxDevDeg: 40.0,
+      a: 'rightElbow',
+      b: 'rightShoulder',
+      c: 'rightHip',
+      weight: 0.10,
+      maxDevDeg: 40.0,
       feedHigh: 'Lower your right arm',
       feedLow: 'Raise your right arm',
     ),
     _JointTriplet(
       name: 'Left knee',
-      a: 'leftHip', b: 'leftKnee', c: 'leftAnkle',
-      weight: 0.12, maxDevDeg: 40.0,
+      a: 'leftHip',
+      b: 'leftKnee',
+      c: 'leftAnkle',
+      weight: 0.12,
+      maxDevDeg: 40.0,
       feedHigh: 'Bend your left knee more',
       feedLow: 'Straighten your left leg',
     ),
     _JointTriplet(
       name: 'Right knee',
-      a: 'rightHip', b: 'rightKnee', c: 'rightAnkle',
-      weight: 0.12, maxDevDeg: 40.0,
+      a: 'rightHip',
+      b: 'rightKnee',
+      c: 'rightAnkle',
+      weight: 0.12,
+      maxDevDeg: 40.0,
       feedHigh: 'Bend your right knee more',
       feedLow: 'Straighten your right leg',
     ),
     _JointTriplet(
       name: 'Left hip',
-      a: 'leftShoulder', b: 'leftHip', c: 'leftKnee',
-      weight: 0.09, maxDevDeg: 35.0,
+      a: 'leftShoulder',
+      b: 'leftHip',
+      c: 'leftKnee',
+      weight: 0.09,
+      maxDevDeg: 35.0,
       feedHigh: 'Open your left hip angle',
       feedLow: 'Bring your left leg closer to centre',
     ),
     _JointTriplet(
       name: 'Right hip',
-      a: 'rightShoulder', b: 'rightHip', c: 'rightKnee',
-      weight: 0.09, maxDevDeg: 35.0,
+      a: 'rightShoulder',
+      b: 'rightHip',
+      c: 'rightKnee',
+      weight: 0.09,
+      maxDevDeg: 35.0,
       feedHigh: 'Open your right hip angle',
       feedLow: 'Bring your right leg closer to centre',
     ),
     _JointTriplet(
       name: 'Left ankle',
-      a: 'leftKnee', b: 'leftAnkle', c: 'leftFootIndex',
-      weight: 0.03, maxDevDeg: 30.0,
+      a: 'leftKnee',
+      b: 'leftAnkle',
+      c: 'leftFootIndex',
+      weight: 0.03,
+      maxDevDeg: 30.0,
       feedHigh: 'Flex your left foot up',
       feedLow: 'Point your left foot more',
     ),
     _JointTriplet(
       name: 'Right ankle',
-      a: 'rightKnee', b: 'rightAnkle', c: 'rightFootIndex',
-      weight: 0.03, maxDevDeg: 30.0,
+      a: 'rightKnee',
+      b: 'rightAnkle',
+      c: 'rightFootIndex',
+      weight: 0.03,
+      maxDevDeg: 30.0,
       feedHigh: 'Flex your right foot up',
       feedLow: 'Point your right foot more',
     ),
@@ -156,10 +186,12 @@ class PoseComparisonService {
         continue;
       }
 
-      final liveConf = [liveA.visibility, liveB.visibility, liveC.visibility].reduce(min);
+      final liveConf =
+          [liveA.visibility, liveB.visibility, liveC.visibility].reduce(min);
       final confWeight = t.weight * liveConf;
 
-      final useZ = _shouldUseZ(liveA, liveB, liveC) && _shouldUseZ(refA, refB, refC);
+      final useZ =
+          _shouldUseZ(liveA, liveB, liveC) && _shouldUseZ(refA, refB, refC);
 
       final refAngle = _tripletAngle(refA, refB, refC, useZ: useZ);
       final liveAngle = _tripletAngle(liveA, liveB, liveC, useZ: useZ);
@@ -191,9 +223,15 @@ class PoseComparisonService {
 
     final extraWarnings = <String>[];
     const legKeys = [
-      'leftHip', 'rightHip', 'leftKnee', 'rightKnee', 'leftAnkle', 'rightAnkle'
+      'leftHip',
+      'rightHip',
+      'leftKnee',
+      'rightKnee',
+      'leftAnkle',
+      'rightAnkle'
     ];
-    if (legKeys.every(refKp.containsKey) && !legKeys.every(liveKp.containsKey)) {
+    if (legKeys.every(refKp.containsKey) &&
+        !legKeys.every(liveKp.containsKey)) {
       extraWarnings.add('Step back so your whole body is in frame.');
     }
 
@@ -231,13 +269,10 @@ class PoseComparisonService {
     return max(0.0, 100.0 * (1.0 - dev / _trunkMaxDev));
   }
 
-  static double _tripletAngle(_Vector3D a, _Vector3D b, _Vector3D c, {bool useZ = false}) {
-    final vBA = useZ
-        ? (a - b)
-        : _Vector3D(a.x - b.x, a.y - b.y, 0.0);
-    final vBC = useZ
-        ? (c - b)
-        : _Vector3D(c.x - b.x, c.y - b.y, 0.0);
+  static double _tripletAngle(_Vector3D a, _Vector3D b, _Vector3D c,
+      {bool useZ = false}) {
+    final vBA = useZ ? (a - b) : _Vector3D(a.x - b.x, a.y - b.y, 0.0);
+    final vBC = useZ ? (c - b) : _Vector3D(c.x - b.x, c.y - b.y, 0.0);
     final uBA = vBA.unit();
     final uBC = vBC.unit();
     if (uBA == null || uBC == null) return 0.0;
@@ -333,9 +368,7 @@ class PoseComparisonService {
       String msg;
       if (name == 'Trunk lean') {
         msg = score < 50.0
-            ? (sign > 0
-                ? 'Lean your torso forward more'
-                : 'Stand more upright')
+            ? (sign > 0 ? 'Lean your torso forward more' : 'Stand more upright')
             : (sign > 0
                 ? 'Lean your torso forward slightly'
                 : 'Straighten your posture slightly');
@@ -372,7 +405,9 @@ class PoseComparisonService {
     Map<String, dynamic> reference,
   ) {
     final result = evaluate(live, reference);
-    return result.feedback.isEmpty ? 'Hold it right there' : result.feedback.first;
+    return result.feedback.isEmpty
+        ? 'Hold it right there'
+        : result.feedback.first;
   }
 }
 
@@ -387,7 +422,6 @@ class _Vector3D {
   _Vector3D operator *(double s) => _Vector3D(x * s, y * s, z * s, visibility);
 
   double dot(_Vector3D o) => x * o.x + y * o.y + z * o.z;
-
 
   double norm() => sqrt(x * x + y * y + z * z);
 

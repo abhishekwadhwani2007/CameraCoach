@@ -16,6 +16,22 @@ Pose matching runs fully on-device using Google ML Kit. The optional Python back
 
 ---
 
+## App Screenshots
+
+<p align="center">
+  <img src="docs/screenshots/01-home.png" alt="CameraCoach home screen" width="180" />
+  <img src="docs/screenshots/02-silhouette-preview.png" alt="Silhouette preview screen" width="180" />
+  <img src="docs/screenshots/03-overlay-editor.png" alt="Overlay editor screen" width="180" />
+  <img src="docs/screenshots/04-live-coaching.png" alt="Live pose coaching screen" width="180" />
+  <img src="docs/screenshots/05-capture-analysis.png" alt="Capture analysis screen" width="180" />
+</p>
+
+<p align="center">
+  <sub>Reference setup → silhouette editing → live coaching → capture analysis</sub>
+</p>
+
+---
+
 ## 👨‍💻 The Story Behind CameraCoach
 
 > *"The idea came from a family trip — a perfect location, a perfect moment, and nobody who knew how to frame the shot the way I had it in my head."*
@@ -153,7 +169,7 @@ camera_coach/
 
 ### 2️⃣ Backend
 
-The backend is already deployed and running on **Google Cloud Run** — no setup needed. The app points to the live endpoint automatically via `.env.json`.
+The app reads its backend URL from a local `.env.json` file that is intentionally not committed to Git. You can point it at your deployed backend or at a local/LAN backend while testing.
 
 Copy the example config and fill in the Cloud Run URL:
 ```bash
@@ -165,7 +181,7 @@ cp .env.json.example .env.json
 }
 ```
 
-> **Running locally instead?** See `backend/requirements.txt` for dependencies. Start with `uvicorn server:app --host 0.0.0.0 --port 8000` and update `BACKEND_URL` to your LAN IP.
+> **Running locally?** See `backend/requirements.txt` for dependencies. Start with `uvicorn server:app --host 0.0.0.0 --port 8000` and update `BACKEND_URL` to your LAN IP.
 
 ### 3️⃣ Flutter Setup
 
@@ -253,7 +269,7 @@ Two lines are load-bearing for the overlay and must never be removed:
 
 ```dart
 Transform.scale(
-  scale: 1.35,                             // without this the overlay renders tiny in the corner
+  scale: 1.15,                             // tuned to fill viewfinder without overflowing frame edges
   child: Image.file(
     overlayFile,
     key: ValueKey(referenceOutlinePath),   // without this Flutter reuses the old widget on path change

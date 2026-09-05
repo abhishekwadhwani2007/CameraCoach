@@ -160,13 +160,12 @@ class _EditableOverlayScreenState extends State<EditableOverlayScreen> {
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: AppColors.surface,
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(
           'Reset overlay edits?',
           style: AppTextStyles.pageTitle.copyWith(fontSize: 17),
         ),
-        content: Text(
+        content: const Text(
           'All your edits will be discarded.',
           style: AppTextStyles.secondaryBody,
         ),
@@ -348,7 +347,8 @@ class _EditableOverlayScreenState extends State<EditableOverlayScreen> {
           // ── Canvas body ─────────────────────────────────────────────────
           _isLoading || _aiMaskUiImage == null || _photoUiImage == null
               ? const Center(
-                  child: CircularProgressIndicator(color: AppColors.primaryText),
+                  child:
+                      CircularProgressIndicator(color: AppColors.primaryText),
                 )
               : Column(
                   children: [
@@ -491,7 +491,7 @@ class _EditableOverlayScreenState extends State<EditableOverlayScreen> {
                         minimumSize: Size.zero,
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
-                      child: Text(
+                      child: const Text(
                         'Skip',
                         style: AppTextStyles.buttonSecondary,
                       ),
@@ -571,5 +571,3 @@ class OverlayCanvasPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant OverlayCanvasPainter oldDelegate) => true;
 }
-
-

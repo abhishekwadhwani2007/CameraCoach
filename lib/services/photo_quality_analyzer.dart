@@ -17,15 +17,24 @@ class PhotoQualityAnalyzer {
   static int _snapToNearestIso(String rawIso) {
     const presets = [50, 100, 200, 400, 800];
     final value = int.tryParse(rawIso) ?? 200;
-    return presets.reduce((a, b) => (a - value).abs() < (b - value).abs() ? a : b);
+    return presets
+        .reduce((a, b) => (a - value).abs() < (b - value).abs() ? a : b);
   }
 
   /// Snap raw EXIF shutter string to nearest available preset.
   static String _snapToNearestShutter(String rawShutter) {
     const presets = {
-      '1/4000': 0.00025, '1/2000': 0.0005, '1/1000': 0.001,
-      '1/500': 0.002, '1/125': 0.008, '1/60': 0.01667,
-      '1/15': 0.06667, '1s': 1.0, '4s': 4.0, '8s': 8.0, '30s': 30.0,
+      '1/4000': 0.00025,
+      '1/2000': 0.0005,
+      '1/1000': 0.001,
+      '1/500': 0.002,
+      '1/125': 0.008,
+      '1/60': 0.01667,
+      '1/15': 0.06667,
+      '1s': 1.0,
+      '4s': 4.0,
+      '8s': 8.0,
+      '30s': 30.0,
     };
     double rawSeconds;
     if (rawShutter.contains('/')) {
@@ -63,11 +72,11 @@ class PhotoQualityAnalyzer {
     try {
       final tags = await readExifFromBytes(bytes);
       if (tags.isNotEmpty) {
-        exifIso          = tags['EXIF ISOSpeedRatings']?.toString();
-        exifShutter      = tags['EXIF ExposureTime']?.toString();
-        exifAperture     = tags['EXIF FNumber']?.toString();
-        exifFocalLength  = tags['EXIF FocalLength']?.toString();
-        exifCameraModel  = tags['Image Model']?.toString();
+        exifIso = tags['EXIF ISOSpeedRatings']?.toString();
+        exifShutter = tags['EXIF ExposureTime']?.toString();
+        exifAperture = tags['EXIF FNumber']?.toString();
+        exifFocalLength = tags['EXIF FocalLength']?.toString();
+        exifCameraModel = tags['Image Model']?.toString();
       }
     } catch (_) {}
 
@@ -101,22 +110,21 @@ class PhotoQualityAnalyzer {
     final img.Image bgRoi =
         img.copyCrop(decoded, x: 0, y: 0, width: bgW, height: bgH);
 
-    final double faceLum      = _luminance(faceRoi);
-    final double faceBlur     = _laplacianVariance(faceRoi);
-    final double bgBlur       = _laplacianVariance(bgRoi);
-    final double dofRatio     = faceBlur / (bgBlur + 1.0);
+    final double faceLum = _luminance(faceRoi);
+    final double faceBlur = _laplacianVariance(faceRoi);
+    final double bgBlur = _laplacianVariance(bgRoi);
+    final double dofRatio = faceBlur / (bgBlur + 1.0);
     final double dynamicRange = _dynamicRange(decoded);
-    final double wbScore      = _colorTempIndex(faceRoi);
+    final double wbScore = _colorTempIndex(faceRoi);
 
     final feedback = <String>[];
 
     if (dofRatio > ProThresholds.shallowPro) {
-      feedback.add(
-          'PRO: Shallow depth of field detected (Wide Aperture / f-1.8). '
-          'Background is nicely separated.');
+      feedback
+          .add('PRO: Shallow depth of field detected (Wide Aperture / f-1.8). '
+              'Background is nicely separated.');
     } else if (dofRatio < ProThresholds.deepLimit) {
-      feedback.add(
-          'LIMIT: Deep focus detected. Your background is too sharp; '
+      feedback.add('LIMIT: Deep focus detected. Your background is too sharp; '
           'use a lower f-stop or move the subject away from the wall.');
     }
 
@@ -128,44 +136,52 @@ class PhotoQualityAnalyzer {
       feedback.add(
           "LIMIT: Slightly dark face. Consider increasing exposure compensation (+EV).");
     } else if (faceLum > ProThresholds.highlightClipping) {
-      feedback.add(
-          'FAIL: Highlight clipping on skin. '
+      feedback.add('FAIL: Highlight clipping on skin. '
           'Lower your ISO or increase Shutter Speed.');
     }
 
     if (dynamicRange > ProThresholds.excellentHdr) {
-      feedback.add(
-          'INFO: High Dynamic Range detected. '
+      feedback.add('INFO: High Dynamic Range detected. '
           'Image preserves details in both shadows and highlights.');
     }
 
-    final bool hasIssues = feedback.any((f) => f.startsWith('FAIL:') || f.startsWith('LIMIT:'));
+    final bool hasIssues =
+        feedback.any((f) => f.startsWith('FAIL:') || f.startsWith('LIMIT:'));
     if (!hasIssues) {
-      feedback.add('PRO: Lighting, focus, and exposure are perfectly balanced.');
+      feedback
+          .add('PRO: Lighting, focus, and exposure are perfectly balanced.');
     }
 
-    final int    estIso     = faceLum < ProThresholds.slightlyDark ? 400 : 100;
-    final String estShutter = faceLum < ProThresholds.slightlyDark ? '1/125' : '1/500';
-    final String estWb      =
-        wbScore > ProThresholds.warmLimit ? '3200K' : wbScore < ProThresholds.coolLimit ? '6500K' : 'AWB';
-    final double estEv      =
-        faceLum < ProThresholds.slightlyDark ? 0.7 : faceLum > ProThresholds.highlightClipping ? -0.7 : 0.0;
+    final int estIso = faceLum < ProThresholds.slightlyDark ? 400 : 100;
+    final String estShutter =
+        faceLum < ProThresholds.slightlyDark ? '1/125' : '1/500';
+    final String estWb = wbScore > ProThresholds.warmLimit
+        ? '3200K'
+        : wbScore < ProThresholds.coolLimit
+            ? '6500K'
+            : 'AWB';
+    final double estEv = faceLum < ProThresholds.slightlyDark
+        ? 0.7
+        : faceLum > ProThresholds.highlightClipping
+            ? -0.7
+            : 0.0;
 
     return {
       'source': exifIso != null ? 'merged' : 'estimated',
-      if (exifIso         != null) 'exif_iso':          exifIso,
-      if (exifShutter     != null) 'exif_shutter':      exifShutter,
-      if (exifAperture    != null) 'exif_aperture':     exifAperture,
-      if (exifFocalLength != null) 'exif_focalLength':  exifFocalLength,
-      if (exifCameraModel != null) 'exif_cameraModel':  exifCameraModel,
-      'Face_Luminance':        faceLum.toStringAsFixed(1),
-      'Aperture_Depth_Ratio':  dofRatio.toStringAsFixed(2),
-      'Dynamic_Range_Width':   dynamicRange.toStringAsFixed(1),
-      'Color_Temp_Index':      wbScore.toStringAsFixed(1),
-      'iso':           exifIso != null ? _snapToNearestIso(exifIso) : estIso,
-      'shutter':       exifShutter != null ? _snapToNearestShutter(exifShutter) : estShutter,
-      'whiteBalance':  estWb,
-      'ev':            estEv,
+      if (exifIso != null) 'exif_iso': exifIso,
+      if (exifShutter != null) 'exif_shutter': exifShutter,
+      if (exifAperture != null) 'exif_aperture': exifAperture,
+      if (exifFocalLength != null) 'exif_focalLength': exifFocalLength,
+      if (exifCameraModel != null) 'exif_cameraModel': exifCameraModel,
+      'Face_Luminance': faceLum.toStringAsFixed(1),
+      'Aperture_Depth_Ratio': dofRatio.toStringAsFixed(2),
+      'Dynamic_Range_Width': dynamicRange.toStringAsFixed(1),
+      'Color_Temp_Index': wbScore.toStringAsFixed(1),
+      'iso': exifIso != null ? _snapToNearestIso(exifIso) : estIso,
+      'shutter':
+          exifShutter != null ? _snapToNearestShutter(exifShutter) : estShutter,
+      'whiteBalance': estWb,
+      'ev': estEv,
       'feedback': feedback,
     };
   }
@@ -194,10 +210,10 @@ class PhotoQualityAnalyzer {
     for (int y = 1; y < gh - 1; y++) {
       for (int x = 1; x < gw - 1; x++) {
         final double centre = gray.getPixel(x, y).r.toDouble();
-        final double up     = gray.getPixel(x, y - 1).r.toDouble();
-        final double down   = gray.getPixel(x, y + 1).r.toDouble();
-        final double left   = gray.getPixel(x - 1, y).r.toDouble();
-        final double right  = gray.getPixel(x + 1, y).r.toDouble();
+        final double up = gray.getPixel(x, y - 1).r.toDouble();
+        final double down = gray.getPixel(x, y + 1).r.toDouble();
+        final double left = gray.getPixel(x - 1, y).r.toDouble();
+        final double right = gray.getPixel(x + 1, y).r.toDouble();
         final double l = (4 * centre) - up - down - left - right;
         laplacian[y * gw + x] = l;
         mean += l;
@@ -222,8 +238,10 @@ class PhotoQualityAnalyzer {
     }
     if (values.isEmpty) return 0.0;
     values.sort();
-    final int p95 = values[(values.length * 0.95).floor().clamp(0, values.length - 1)];
-    final int p05 = values[(values.length * 0.05).floor().clamp(0, values.length - 1)];
+    final int p95 =
+        values[(values.length * 0.95).floor().clamp(0, values.length - 1)];
+    final int p05 =
+        values[(values.length * 0.05).floor().clamp(0, values.length - 1)];
     return (p95 - p05).toDouble();
   }
 
@@ -236,9 +254,12 @@ class PhotoQualityAnalyzer {
       final double gn = p.g / 255.0;
       final double bn = p.b / 255.0;
 
-      final double rl = rn > 0.04045 ? pow((rn + 0.055) / 1.055, 2.4).toDouble() : rn / 12.92;
-      final double gl = gn > 0.04045 ? pow((gn + 0.055) / 1.055, 2.4).toDouble() : gn / 12.92;
-      final double bl = bn > 0.04045 ? pow((bn + 0.055) / 1.055, 2.4).toDouble() : bn / 12.92;
+      final double rl =
+          rn > 0.04045 ? pow((rn + 0.055) / 1.055, 2.4).toDouble() : rn / 12.92;
+      final double gl =
+          gn > 0.04045 ? pow((gn + 0.055) / 1.055, 2.4).toDouble() : gn / 12.92;
+      final double bl =
+          bn > 0.04045 ? pow((bn + 0.055) / 1.055, 2.4).toDouble() : bn / 12.92;
 
       final double y = 0.2126 * rl + 0.7152 * gl + 0.0722 * bl;
       final double z = 0.0193 * rl + 0.1192 * gl + 0.9505 * bl;

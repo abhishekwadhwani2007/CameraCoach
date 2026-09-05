@@ -78,7 +78,14 @@ class _LiveCoachScreenState extends State<LiveCoachScreen>
     '8s',
     '30s',
   ];
-  static const _whiteBalanceOptions = ['AWB', '2300K', '3200K', '5500K', '6500K', '8000K'];
+  static const _whiteBalanceOptions = [
+    'AWB',
+    '2300K',
+    '3200K',
+    '5500K',
+    '6500K',
+    '8000K'
+  ];
 
   SensorRanges? _sensorRanges;
 
@@ -120,10 +127,10 @@ class _LiveCoachScreenState extends State<LiveCoachScreen>
 
     _focusAnimController = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 400));
-    _focusScale = Tween(begin: 1.4, end: 1.0)
-        .animate(CurvedAnimation(parent: _focusAnimController, curve: Curves.easeOut));
-    _focusOpacity = Tween(begin: 1.0, end: 0.0).animate(
-        CurvedAnimation(parent: _focusAnimController, curve: const Interval(0.6, 1.0)));
+    _focusScale = Tween(begin: 1.4, end: 1.0).animate(
+        CurvedAnimation(parent: _focusAnimController, curve: Curves.easeOut));
+    _focusOpacity = Tween(begin: 1.0, end: 0.0).animate(CurvedAnimation(
+        parent: _focusAnimController, curve: const Interval(0.6, 1.0)));
 
     _flipAnimController = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 300));
@@ -146,7 +153,8 @@ class _LiveCoachScreenState extends State<LiveCoachScreen>
             _referenceImageSize = Size(w, h);
           }
         } else {
-          AppLogger.error('Corrupt keypointsJson: unexpected type ${decoded.runtimeType}');
+          AppLogger.error(
+              'Corrupt keypointsJson: unexpected type ${decoded.runtimeType}');
         }
       } catch (e) {
         AppLogger.error('Reference keypoints parse: $e');
@@ -161,8 +169,10 @@ class _LiveCoachScreenState extends State<LiveCoachScreen>
       final map = decoded;
 
       final isoIdx = _isoOptions.indexOf('${map['iso'] ?? ''}');
-      final shutterIdx = _shutterSpeedOptions.indexOf('${map['shutter'] ?? ''}');
-      final wbIdx = _whiteBalanceOptions.indexOf('${map['whiteBalance'] ?? ''}');
+      final shutterIdx =
+          _shutterSpeedOptions.indexOf('${map['shutter'] ?? ''}');
+      final wbIdx =
+          _whiteBalanceOptions.indexOf('${map['whiteBalance'] ?? ''}');
       if (isoIdx >= 0) _selectedIsoIndex = isoIdx;
       if (shutterIdx >= 0) _selectedShutterIndex = shutterIdx;
       if (wbIdx >= 0) _selectedWhiteBalanceIndex = wbIdx;
@@ -204,7 +214,8 @@ class _LiveCoachScreenState extends State<LiveCoachScreen>
         orElse: () => cams.first,
       );
 
-      final nc = CameraController(pick, _resolutionPresets[_selectedResolutionIndex],
+      final nc = CameraController(
+          pick, _resolutionPresets[_selectedResolutionIndex],
           enableAudio: false, imageFormatGroup: ImageFormatGroup.nv21);
       await nc.initialize();
 
@@ -242,23 +253,30 @@ class _LiveCoachScreenState extends State<LiveCoachScreen>
   }
 
   Future<void> _applyProSettings() async {
-    if (_sensorRanges == null || _cameraController == null || !_isCameraReady) return;
+    if (_sensorRanges == null || _cameraController == null || !_isCameraReady) {
+      return;
+    }
     final iso = int.tryParse(_isoOptions[_selectedIsoIndex]) ?? 200;
     await HardwareCameraControls.setManualExposure(
       iso: iso,
       shutterLabel: _shutterSpeedOptions[_selectedShutterIndex],
       ranges: _sensorRanges!,
     );
-    await HardwareCameraControls.setWhiteBalance(wbLabel: _whiteBalanceOptions[_selectedWhiteBalanceIndex]);
+    await HardwareCameraControls.setWhiteBalance(
+        wbLabel: _whiteBalanceOptions[_selectedWhiteBalanceIndex]);
     await _applyEv(_exposureCompensation);
   }
 
   Future<void> _startPoseCoachingStream() async {
-    if (_poseStreamActive || _isFocusPeakingEnabled || _referenceLandmarks == null) {
+    if (_poseStreamActive ||
+        _isFocusPeakingEnabled ||
+        _referenceLandmarks == null) {
       return;
     }
     final controller = _cameraController;
-    if (controller == null || !_isCameraReady || controller.value.isStreamingImages) {
+    if (controller == null ||
+        !_isCameraReady ||
+        controller.value.isStreamingImages) {
       return;
     }
     try {
@@ -355,7 +373,8 @@ class _LiveCoachScreenState extends State<LiveCoachScreen>
       );
 
       const double emaAlpha = 0.3;
-      final newSmoothed = (emaAlpha * result.score) + ((1 - emaAlpha) * _smoothedMatchPercent);
+      final newSmoothed =
+          (emaAlpha * result.score) + ((1 - emaAlpha) * _smoothedMatchPercent);
 
       final pass = result.isReliable && newSmoothed >= 97.0;
 
@@ -421,7 +440,8 @@ class _LiveCoachScreenState extends State<LiveCoachScreen>
     if (mounted) setState(() => _focusTapPoint = null);
   }
 
-  void _scaleStart(ScaleStartDetails d) => _pinchStartZoomLevel = _currentZoomLevel;
+  void _scaleStart(ScaleStartDetails d) =>
+      _pinchStartZoomLevel = _currentZoomLevel;
   Future<void> _scaleUpdate(ScaleUpdateDetails d) async {
     final z = (_pinchStartZoomLevel * d.scale).clamp(1.0, 8.0);
     setState(() => _currentZoomLevel = z);
@@ -514,7 +534,8 @@ class _LiveCoachScreenState extends State<LiveCoachScreen>
     setState(() => _isFlashAnimating = false);
 
     if (_isLongExposure && _selectedModeIndex == 1) {
-      final secs = _longExposureSecs(_shutterSpeedOptions[_selectedShutterIndex]);
+      final secs =
+          _longExposureSecs(_shutterSpeedOptions[_selectedShutterIndex]);
       if (secs > 1) {
         setState(() => _exposureCountdown = secs);
         _exposureTimer = Timer.periodic(const Duration(seconds: 1), (t) {
@@ -604,7 +625,6 @@ class _LiveCoachScreenState extends State<LiveCoachScreen>
       value: SystemUiOverlayStyle.light,
       child: Scaffold(
         backgroundColor: Colors.black,
-
         body: Stack(
           children: [
             if (isFramed)
@@ -650,7 +670,8 @@ class _LiveCoachScreenState extends State<LiveCoachScreen>
                       TopBarControlButton(
                         icon: Icons.grid_3x3_rounded,
                         active: _isGridVisible,
-                        onPressed: () => setState(() => _isGridVisible = !_isGridVisible),
+                        onPressed: () =>
+                            setState(() => _isGridVisible = !_isGridVisible),
                       ),
                     ],
                   ),
@@ -689,7 +710,6 @@ class _LiveCoachScreenState extends State<LiveCoachScreen>
                         : _manualFocusDistance.toStringAsFixed(1),
               ),
             ),
-
             if (_isAutoCapturing)
               Positioned.fill(
                 child: Container(

@@ -22,11 +22,25 @@ class AppConstants {
   // between the live screen and the photo-quality analyser.
   static const List<int> isoPresets = [50, 100, 200, 400, 800];
   static const List<String> shutterPresets = [
-    '1/4000', '1/2000', '1/1000', '1/500', '1/125', '1/60', '1/15',
-    '1s', '4s', '8s', '30s',
+    '1/4000',
+    '1/2000',
+    '1/1000',
+    '1/500',
+    '1/125',
+    '1/60',
+    '1/15',
+    '1s',
+    '4s',
+    '8s',
+    '30s',
   ];
   static const List<String> whiteBalancePresets = [
-    'AWB', '2300K', '3200K', '5500K', '6500K', '8000K',
+    'AWB',
+    '2300K',
+    '3200K',
+    '5500K',
+    '6500K',
+    '8000K',
   ];
 }
 

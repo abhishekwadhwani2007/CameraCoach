@@ -7,8 +7,8 @@ void main() {
     await tester.pumpWidget(const CameraCoachApp(showOnboarding: false));
     await tester.pumpAndSettle();
 
-    expect(find.text('PoseCoach'), findsOneWidget);
+    expect(find.text('CameraCoach AI'), findsOneWidget);
     expect(find.text('Upload Reference'), findsOneWidget);
-    expect(find.byIcon(Icons.add_photo_alternate_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.camera_alt_outlined), findsOneWidget);
   });
 }

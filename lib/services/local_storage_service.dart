@@ -118,7 +118,6 @@ class LocalStorageService {
     }
   }
 
-
   /// Removes temporary CameraCoach files left behind by interrupted capture
   /// flows. Only touches the scoped camera_coach_temp/ subdirectory — this
   /// method will never delete files belonging to other apps.

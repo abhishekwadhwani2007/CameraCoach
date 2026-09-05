@@ -39,7 +39,8 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!allowedExtensions.contains('.$ext')) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Only JPEG, PNG, or WebP images are supported — please pick one of those.'),
+          content: Text(
+              'Only JPEG, PNG, or WebP images are supported — please pick one of those.'),
         ),
       );
       return;
@@ -51,7 +52,8 @@ class _HomeScreenState extends State<HomeScreen> {
     if (fileSize > maxBytes) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('That image is a bit too large. Please use a photo under 10 MB.'),
+          content: Text(
+              'That image is a bit too large. Please use a photo under 10 MB.'),
         ),
       );
       return;
@@ -75,7 +77,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
     AppLogger.debug('Sending image to API: ${image.path}');
     final overlayPath = await BackendApiService.generateOverlay(image.path);
-    AppLogger.debug('generateOverlay returned: ${overlayPath != null ? 'path' : 'null'}');
+    AppLogger.debug(
+        'generateOverlay returned: ${overlayPath != null ? 'path' : 'null'}');
 
     if (!mounted) return;
     Navigator.pop(context);
@@ -125,7 +128,8 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!result.isGranted) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Camera access is needed to start coaching.')),
+          const SnackBar(
+              content: Text('Camera access is needed to start coaching.')),
         );
         return;
       }
@@ -137,7 +141,8 @@ class _HomeScreenState extends State<HomeScreen> {
       if (refMap == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text('You\'ll need a reference photo first — tap Upload Reference to pick one.')),
+              content: Text(
+                  'You\'ll need a reference photo first — tap Upload Reference to pick one.')),
         );
         _pickReferencePhoto();
         return;
@@ -157,10 +162,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      // No AppBar — full dark immersive screen per reference design
       body: Stack(
         children: [
-          // ── Background: camera lens image at low opacity ──────────────────
           Positioned.fill(
             child: Image.asset(
               'assets/images/home_bg.png',
@@ -169,39 +172,27 @@ class _HomeScreenState extends State<HomeScreen> {
               colorBlendMode: BlendMode.srcOver,
             ),
           ),
-
-          // ── Main content ──────────────────────────────────────────────────
           SafeArea(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // ── Header card ─────────────────────────────────────────
                   _buildHeaderCard(),
-
                   const SizedBox(height: 48),
-
-                  // ── Upload Reference button ──────────────────────────────
                   _buildUploadReferenceButton(),
-
                   const SizedBox(height: 16),
-
-                  // ── Start Coaching button (silver gradient) ──────────────
                   _buildStartCoachingButton(),
-
                   const SizedBox(height: 40),
-
-                  // ── Tip caption ─────────────────────────────────────────
-                  Row(
+                  const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.camera_alt_outlined,
                         size: 13,
                         color: AppColors.tertiaryText,
                       ),
-                      const SizedBox(width: 6),
+                      SizedBox(width: 6),
                       Text(
                         'Tip: Use a bright room for best AI accuracy',
                         style: AppTextStyles.caption,
@@ -217,17 +208,17 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// Dark glass header card with metallic logo halfway out of the box
   Widget _buildHeaderCard() {
     return Stack(
       clipBehavior: Clip.none,
       alignment: Alignment.topCenter,
       children: [
-        // The card background
         Container(
           width: double.infinity,
-          margin: const EdgeInsets.only(top: 105), // Drops card top to logo's exact midpoint
-          padding: const EdgeInsets.fromLTRB(28, 100, 28, 36), // Keeps bottom text gap identical
+          margin: const EdgeInsets.only(
+              top: 105), // Drops card top to logo's exact midpoint
+          padding: const EdgeInsets.fromLTRB(
+              28, 100, 28, 36), // Keeps bottom text gap identical
           decoration: BoxDecoration(
             color: AppColors.surface,
             borderRadius: BorderRadius.circular(24),
@@ -242,7 +233,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           child: Column(
             children: [
-              Text(
+              const Text(
                 'CameraCoach AI',
                 style: AppTextStyles.mainTitle,
               ),
@@ -256,12 +247,11 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
         ),
-        // Metallic CameraCoach logo floating out
         Positioned(
-          top: 15, // Pushed slightly down
+          top: 15,
           child: Image.asset(
             'assets/images/logo.png',
-            width: 180, // Enlarged
+            width: 180,
             height: 180,
             fit: BoxFit.contain,
           ),
@@ -270,7 +260,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// Dark pill button — Upload Reference
   Widget _buildUploadReferenceButton() {
     return GestureDetector(
       onTap: _pickReferencePhoto,
@@ -291,7 +280,6 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         child: Row(
           children: [
-            // Icon container
             Container(
               width: 44,
               height: 44,
@@ -322,7 +310,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                   const SizedBox(height: 2),
-                  Text(
+                  const Text(
                     'Pick your target pose from gallery',
                     style: AppTextStyles.secondaryBody,
                   ),
@@ -340,7 +328,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// Silver gradient pill button — Start Coaching
   Widget _buildStartCoachingButton() {
     return GestureDetector(
       onTap: _startCoaching,
@@ -351,7 +338,11 @@ class _HomeScreenState extends State<HomeScreen> {
           gradient: const LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [AppColors.silverTop, AppColors.silverMid, AppColors.silverBot],
+            colors: [
+              AppColors.silverTop,
+              AppColors.silverMid,
+              AppColors.silverBot
+            ],
           ),
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
@@ -364,7 +355,6 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         child: Row(
           children: [
-            // Dark circle with play icon
             Container(
               width: 44,
               height: 44,

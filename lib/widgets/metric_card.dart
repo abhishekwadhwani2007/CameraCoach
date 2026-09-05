@@ -42,7 +42,8 @@ class MetricCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(title, style: AppTextStyles.cameraLabel),
-              Icon(icon, color: AppColors.yellow.withValues(alpha: 0.85), size: 16),
+              Icon(icon,
+                  color: AppColors.yellow.withValues(alpha: 0.85), size: 16),
             ],
           ),
           Column(

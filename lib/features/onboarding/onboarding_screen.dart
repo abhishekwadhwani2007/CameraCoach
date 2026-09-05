@@ -157,7 +157,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           const Icon(Icons.camera_alt_rounded,
               size: 100, color: AppColors.primaryText),
           const SizedBox(height: 32),
-          Text(
+          const Text(
             'Welcome to CameraCoach',
             style: AppTextStyles.mainTitle,
             textAlign: TextAlign.center,
@@ -165,7 +165,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           const SizedBox(height: 16),
           Text(
             'Your personal pose guide — match any reference photo in real time and let the app take the shot when you\'ve nailed it.',
-            style: AppTextStyles.primaryBody.copyWith(color: AppColors.secondaryText),
+            style: AppTextStyles.primaryBody
+                .copyWith(color: AppColors.secondaryText),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 48),
@@ -206,7 +207,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('How It Works', style: AppTextStyles.mainTitle),
+          const Text('How It Works', style: AppTextStyles.mainTitle),
           const SizedBox(height: 32),
           ...steps.map((step) => _buildStepRow(step.$2, step.$3, step.$4)),
           const SizedBox(height: 40),
@@ -265,11 +266,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 16),
-          Text('Just a couple of permissions', style: AppTextStyles.mainTitle),
+          const Text('Just a couple of permissions',
+              style: AppTextStyles.mainTitle),
           const SizedBox(height: 8),
           Text(
             'CameraCoach needs camera access and photo library access to work. Everything runs on your device — nothing is sent anywhere.',
-            style: AppTextStyles.primaryBody.copyWith(color: AppColors.secondaryText),
+            style: AppTextStyles.primaryBody
+                .copyWith(color: AppColors.secondaryText),
           ),
           const SizedBox(height: 32),
           PermissionTile(
@@ -305,7 +308,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             Center(
               child: TextButton(
                 onPressed: _completeOnboarding,
-                child: Text(
+                child: const Text(
                   'Skip for now — I\'ll grant these later',
                   style: AppTextStyles.buttonSecondary,
                 ),
