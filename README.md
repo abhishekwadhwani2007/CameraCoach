@@ -171,13 +171,13 @@ camera_coach/
 
 The app reads its backend URL from a local `.env.json` file that is intentionally not committed to Git. You can point it at your deployed backend or at a local/LAN backend while testing.
 
-Copy the example config and fill in the Cloud Run URL:
+Copy the example config and fill in the Render URL after deploying the backend (see [backend/deployment_guide.md](backend/deployment_guide.md)):
 ```bash
 cp .env.json.example .env.json
 ```
 ```json
 {
-  "BACKEND_URL": "https://your-cloudrun-url.a.run.app"
+  "BACKEND_URL": "https://your-service.onrender.com"
 }
 ```
 

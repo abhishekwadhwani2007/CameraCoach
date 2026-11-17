@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+python-multipart
+opencv-python-headless<4.12
+numpy<2
+scipy
+slowapi
+pillow
+tflite-runtime==2.14.0

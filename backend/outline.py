@@ -1,4 +1,9 @@
-import tensorflow as tf
+try:
+    # Small, CPU-only runtime keeps the hosted service within Render Free's
+    # memory limit. Local Windows development can continue using TensorFlow.
+    from tflite_runtime.interpreter import Interpreter
+except ImportError:
+    from tensorflow.lite import Interpreter
 import sys, os, warnings
 import cv2
 import numpy as np
@@ -64,7 +69,7 @@ def sigmoid(x):
 
 def run_pose(img_bgr: np.ndarray):
     H, W = img_bgr.shape[:2]
-    interp = tf.lite.Interpreter(model_path=MODEL_PATH)
+    interp = Interpreter(model_path=MODEL_PATH)
     interp.allocate_tensors()
     inp = interp.get_input_details()[0]
     SZ = inp['shape'][1]

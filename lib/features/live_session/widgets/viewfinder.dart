@@ -102,14 +102,11 @@ class Viewfinder extends StatelessWidget {
               Positioned.fill(
                 child: IgnorePointer(
                   child: overlayFile != null && overlayFile.existsSync()
-                      ? Transform.scale(
-                          scale: 1.15,
+                      ? Image.file(
+                          overlayFile,
+                          key: ValueKey(referenceOutlinePath),
+                          fit: BoxFit.cover,
                           alignment: Alignment.center,
-                          child: Image.file(
-                            overlayFile,
-                            key: ValueKey(referenceOutlinePath),
-                            fit: BoxFit.contain,
-                          ),
                         )
                       : const SizedBox.shrink(),
                 ),

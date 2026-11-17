@@ -57,8 +57,8 @@ macos/Flutter/flutter_export_environment.sh
 macos/Flutter/ephemeral/
 ios/Flutter/ephemeral/
 
-# Firebase credentials — contain live API keys; NEVER commit these
-# Re-generate via: flutterfire configure
+# Firebase configuration — environment-specific client files stay local.
+# Re-generate via: flutterfire configure if Firebase is added to the app.
 android/app/google-services.json
 ios/Runner/GoogleService-Info.plist
 lib/firebase_options.dart

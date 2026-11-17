@@ -1,83 +1,37 @@
-# Deploying CameraCoach Backend to Render
+# Free backend deployment (Render)
 
-This step-by-step guide walks you through deploying the **CameraCoach** FastAPI backend to Render using Docker. Render has an excellent free tier for Web Services and deploys directly from your GitHub repository.
+The backend is configured as a Render Blueprint in the repository root (`render.yaml`). It uses the free web service plan, which costs $0 and spins down after 15 minutes without requests. The first request after an idle period can take around a minute to respond. Render currently documents 512 MB RAM for a free service, so the Docker image uses the smaller `tflite-runtime` rather than full TensorFlow.
 
----
+## Deploy
 
-## 🚀 Quick Overview
-
-- **Host**: Render (render.com)
-- **Service Type**: Web Service (Docker)
-- **Deployment**: Automatic from GitHub
-- **Port Handling**: Render automatically injects the `$PORT` environment variable.
-
----
-
-## 📋 Step-by-Step Deployment Instructions
-
-### Step 1: Ensure Your Code is on GitHub
-
-Since Render deploys directly from your repository, make sure all your backend files are pushed to your GitHub repo (including `backend/Dockerfile`, `backend/requirements.txt`, etc.).
-
-### Step 2: Create a Render Account
-
-1. Go to [Render](https://render.com/) and create a free account (you can sign up with GitHub).
-2. Log into your Render dashboard.
-
-### Step 3: Create a New Web Service
-
-1. On the Render Dashboard, click **New** and select **Web Service**.
-2. Select **Build and deploy from a Git repository**.
-3. Connect your GitHub account and select your `CameraCoach` repository.
-4. On the deployment configuration page, set the following:
-   - **Name**: `posecoach-api` (or your preferred name)
-   - **Region**: Choose the one closest to you.
-   - **Branch**: `main`
-   - **Root Directory**: `backend` (This is very important! It tells Render to look for the Dockerfile inside the backend folder).
-   - **Environment**: **Docker**
-   - **Instance Type**: **Free** (If you don't see Free, make sure you don't have a database or other paid service attached, but the Free tier is available for standard Web Services).
-5. Click **Create Web Service**.
-
----
-
-### Step 4: Monitor Building & Container Startup
-
-1. Render will automatically read your `Dockerfile` and start building the container.
-2. You can watch the progress in the **Logs** window on the Render dashboard.
-3. The build might take a few minutes as it installs Python and the necessary dependencies.
-4. When it finishes, Render will start the server and you'll see a green "Live" status.
-
----
-
-### Step 5: Verify the Live Endpoint
-
-Render will give you a public URL (e.g., `https://posecoach-api.onrender.com`).
-
-Test the endpoint:
-
-- **Health Check**:
-  Open your browser or use curl:
-  ```bash
-  curl https://posecoach-api.onrender.com/health
-  ```
-  *Expected Output:*
-  ```json
-  {"status":"ok","service":"PoseCoach Overlay API","version":"1.0.0"}
-  ```
-
----
-
-### Step 6: Update Mobile App Configuration
-
-In your Flutter app, update `.env.json` or your API service configuration with your live Render URL:
+1. Push this repository to GitHub (including `render.yaml` and `backend/`).
+2. Sign in to [Render](https://render.com), choose **New > Blueprint**, and connect the repository and branch.
+3. Review the blueprint. Confirm the service plan is **Free**, then apply it.
+4. Wait for the service to become Live. Render assigns a URL like `https://posecoach-api.onrender.com`.
+5. Check `https://YOUR-SERVICE.onrender.com/health`; it should return `{"status":"ok","service":"PoseCoach Overlay API","version":"1.0.0"}`.
+6. Update the ignored local `.env.json` with that URL, then rebuild/run Flutter with `flutter run --dart-define-from-file=.env.json`.
 
 ```json
 {
-  "BACKEND_URL": "https://posecoach-api.onrender.com"
+  "BACKEND_URL": "https://YOUR-SERVICE.onrender.com"
 }
 ```
 
----
+For a release build, pass the same define: `flutter build apk --dart-define=BACKEND_URL=https://YOUR-SERVICE.onrender.com`.
 
-## 💤 Note on Render's Free Tier
-Free web services on Render spin down after 15 minutes of inactivity. When the next request comes in, the service spins back up, which can cause a delay of 30-60 seconds for that first request. If this becomes an issue for your app's user experience, you can upgrade to Render's starter tier ($7/month) to keep it awake permanently.
+## Important limits
+
+- Free services sleep after inactivity; the first request may be slow. The app already falls back to on-device silhouette generation when the backend is unavailable.
+- Uploaded correction files are stored on the service's temporary filesystem and can disappear on restart or redeploy. No paid persistent disk is configured.
+- Keep the service on the **Free** plan. Do not add a paid disk or upgrade the instance if keeping hosting at $0 is the priority.
+- Render cannot stop or delete the existing Google Cloud Run service. After confirming the new URL works, disable/delete the Cloud Run service and any unused paid resources or registries in Google Cloud to stop further charges.
+
+## Local backend
+
+For local development, install `backend/requirements.txt` and run from `backend/`:
+
+```bash
+uvicorn server:app --host 0.0.0.0 --port 8000
+```
+
+The source uses TensorFlow on platforms where `tflite-runtime` is unavailable, such as Windows. The container installs only `backend/requirements-render.txt` to fit the free service's memory budget.

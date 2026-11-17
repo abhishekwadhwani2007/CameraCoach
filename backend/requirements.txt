@@ -6,6 +6,4 @@ tensorflow
 numpy
 scipy
 slowapi
-rembg
-mediapipe
 pillow

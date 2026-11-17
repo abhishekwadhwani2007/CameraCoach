@@ -15,9 +15,9 @@ WORKDIR /app
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-COPY requirements.txt .
+COPY requirements-render.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+    pip install --no-cache-dir -r requirements-render.txt
 
 
 FROM python:3.10-slim AS runner
@@ -28,7 +28,7 @@ ENV PYTHONUNBUFFERED=1 \
     PATH="/opt/venv/bin:$PATH" \
     HOME="/home/user"
 
-# OpenCV, MediaPipe, and TensorFlow all need these system libs at runtime.
+# OpenCV and the TFLite runtime use these system libraries at runtime.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     libgl1 \
